@@ -1,7 +1,7 @@
 import { Packer } from "docx";
-import { generateHealthCertificateDocx, buildFilename } from "./docx-generator.js";
+import { generateReferralFormDocx, buildFilename } from "./docx-generator.js";
 
-const DRAFT_KEY = "referral-form-draft-v1";
+const DRAFT_KEY = "referral-form-draft-v2";
 
 const form = document.getElementById("cert-form");
 const dateInput = document.getElementById("date");
@@ -9,21 +9,15 @@ const statusMsg = document.getElementById("status-msg");
 const clearBtn = document.getElementById("clear-draft-btn");
 const generateBtn = document.getElementById("generate-btn");
 
-const FIELD_IDS = [
-  "recipientName",
+const TEXT_FIELD_IDS = [
   "date",
-  "ownerName",
-  "ownerAddress",
-  "ownerPhone",
-  "animalName",
   "hn",
+  "petName",
   "species",
   "gender",
-  "ageYears",
-  "ageMonths",
-  "ageDays",
   "breed",
-  "microchip",
+  "age",
+  "ownerName",
   "history",
   "physicalExam",
   "laboratory",
@@ -42,17 +36,23 @@ function todayIso() {
 
 function collectFormData() {
   const data = {};
-  for (const id of FIELD_IDS) {
+  for (const id of TEXT_FIELD_IDS) {
     const el = document.getElementById(id);
     data[id] = el ? el.value : "";
   }
+  const purposeEl = form.querySelector('input[name="purpose"]:checked');
+  data.purpose = purposeEl ? purposeEl.value : "";
   return data;
 }
 
 function applyFormData(data) {
-  for (const id of FIELD_IDS) {
+  for (const id of TEXT_FIELD_IDS) {
     const el = document.getElementById(id);
     if (el && data[id] != null) el.value = data[id];
+  }
+  if (data.purpose) {
+    const purposeEl = form.querySelector(`input[name="purpose"][value="${data.purpose}"]`);
+    if (purposeEl) purposeEl.checked = true;
   }
 }
 
@@ -98,6 +98,7 @@ function init() {
   }
 
   form.addEventListener("input", saveDraft);
+  form.addEventListener("change", saveDraft);
 
   clearBtn.addEventListener("click", () => {
     if (!confirm("Clear all fields and delete the saved draft?")) return;
@@ -113,7 +114,7 @@ function init() {
     setStatus("Generating document…");
     try {
       const data = collectFormData();
-      const doc = await generateHealthCertificateDocx(data);
+      const doc = await generateReferralFormDocx(data);
       const blob = await Packer.toBlob(doc);
       const filename = buildFilename(data);
 

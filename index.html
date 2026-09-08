@@ -3,63 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Health Certificate / ใบรายงานผลการตรวจ — Arak Animal Hospital Phuket</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <title>Referral Form / ใบส่งตัวสัตว์ป่วย — Arak Animal Hospital Phuket</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div class="page">
       <header class="app-header">
         <img src="/logo.png" alt="Arak Animal Hospital Phuket" class="app-logo" />
-        <h1>ใบรายงานผลการตรวจ / Health Certificate</h1>
-        <p class="subtitle">โรงพยาบาลสัตว์อารักษ์ สาขาภูเก็ต</p>
+        <h1>ใบส่งตัวสัตว์ป่วย / Referral Form</h1>
       </header>
 
       <form id="cert-form" novalidate>
         <section class="card">
           <div class="row">
-            <div class="field grow">
-              <label for="recipientName">เรียน (ผู้รับ) / To (recipient name) <span class="hint">optional</span></label>
-              <input type="text" id="recipientName" name="recipientName" placeholder="เจ้าของสัตว์เลี้ยง / To Whom It May Concern" />
-            </div>
             <div class="field">
               <label for="date">วันที่ / Date</label>
               <input type="date" id="date" name="date" required />
             </div>
-          </div>
-        </section>
-
-        <section class="card">
-          <h2>ข้อมูลเจ้าของสัตว์ / Owner details</h2>
-          <div class="field">
-            <label for="ownerName">ชื่อ / Name</label>
-            <input type="text" id="ownerName" name="ownerName" />
-          </div>
-          <div class="field">
-            <label for="ownerAddress">ที่อยู่ / Address</label>
-            <input type="text" id="ownerAddress" name="ownerAddress" />
-          </div>
-          <div class="field">
-            <label for="ownerPhone">โทรศัพท์ / Phone</label>
-            <input type="text" id="ownerPhone" name="ownerPhone" />
-          </div>
-        </section>
-
-        <section class="card">
-          <h2>ข้อมูลสัตว์ป่วย / Animal's details</h2>
-          <div class="row">
-            <div class="field grow">
-              <label for="animalName">ชื่อสัตว์เลี้ยง / Name</label>
-              <input type="text" id="animalName" name="animalName" />
-            </div>
             <div class="field">
               <label for="hn">HN</label>
               <input type="text" id="hn" name="hn" />
+            </div>
+          </div>
+          <p class="static-line">เรียน สัตวแพทย์ผู้เกี่ยวข้อง / To Whom it may concern</p>
+        </section>
+
+        <section class="card">
+          <h2>ข้อมูลสัตว์ป่วย / Pet's details</h2>
+          <div class="row">
+            <div class="field grow">
+              <label for="petName">ชื่อสัตว์เลี้ยง / Pet's name</label>
+              <input type="text" id="petName" name="petName" />
             </div>
             <div class="field">
               <label for="species">ชนิด / Species</label>
@@ -71,37 +45,46 @@
             </div>
           </div>
           <div class="row">
-            <div class="field age-field">
-              <label for="ageYears">อายุ / Age</label>
-              <div class="age-inputs">
-                <input type="number" min="0" id="ageYears" name="ageYears" />
-                <span>ปี (Years)</span>
-                <input type="number" min="0" max="11" id="ageMonths" name="ageMonths" />
-                <span>เดือน (Months)</span>
-                <input type="number" min="0" max="30" id="ageDays" name="ageDays" />
-                <span>วัน (Days)</span>
-              </div>
-            </div>
-          </div>
-          <div class="row">
             <div class="field grow">
               <label for="breed">พันธุ์ / Breed</label>
               <input type="text" id="breed" name="breed" />
             </div>
             <div class="field grow">
-              <label for="microchip">Microchip number</label>
-              <input type="text" id="microchip" name="microchip" />
+              <label for="age">อายุ / Age</label>
+              <input type="text" id="age" name="age" placeholder="e.g. 3 ปี 2 เดือน / 3 years 2 months" />
             </div>
+          </div>
+          <div class="field">
+            <label for="ownerName">ชื่อเจ้าของสัตว์เลี้ยง / Owner's name</label>
+            <input type="text" id="ownerName" name="ownerName" />
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>เพื่อ / For</h2>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="purpose" value="diagnosis" />
+              <span>รับการวินิจฉัย / Diagnosis</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="purpose" value="treatment" />
+              <span>รับการรักษา / Treatment</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="purpose" value="ownerRequest" />
+              <span>ตามความต้องการของเจ้าของ / Owner request</span>
+            </label>
           </div>
         </section>
 
         <section class="card">
           <div class="field">
-            <label for="history">1. ประวัติสัตว์ป่วย / History</label>
+            <label for="history">1. ประวัติอาการ / History</label>
             <textarea id="history" name="history" rows="4"></textarea>
           </div>
           <div class="field">
-            <label for="physicalExam">2. ผลการตรวจร่างกาย / Physical examination</label>
+            <label for="physicalExam">2. อาการป่วยปัจจุบัน/ผลการตรวจร่างกาย / Physical Examination</label>
             <textarea id="physicalExam" name="physicalExam" rows="4"></textarea>
           </div>
           <div class="field">
@@ -109,7 +92,7 @@
             <textarea id="laboratory" name="laboratory" rows="4"></textarea>
           </div>
           <div class="field">
-            <label for="diagnosis">4. การวินิจฉัย / Diagnosis</label>
+            <label for="diagnosis">4. การวินิจฉัยเบื้องต้น / Diagnosis</label>
             <textarea id="diagnosis" name="diagnosis" rows="4"></textarea>
           </div>
           <div class="field">
@@ -117,20 +100,20 @@
             <textarea id="treatment" name="treatment" rows="4"></textarea>
           </div>
           <div class="field">
-            <label for="others">6. หมายเหตุหรือรายละเอียดอื่นๆ / Others</label>
+            <label for="others">6. รายละเอียดอื่นๆ / Others</label>
             <textarea id="others" name="others" rows="4"></textarea>
           </div>
         </section>
 
         <section class="card">
-          <h2>สัตวแพทย์ผู้รักษา / Veterinarian</h2>
+          <h2>สัตวแพทย์ผู้ส่งตัว / Referring veterinarian</h2>
           <div class="row">
             <div class="field grow">
               <label for="vetName">ชื่อสัตวแพทย์ / Veterinarian name</label>
               <input type="text" id="vetName" name="vetName" />
             </div>
             <div class="field grow">
-              <label for="licenseNo">ใบอนุญาตเลขที่ / License No.</label>
+              <label for="licenseNo">ใบอนุญาตเลขที่ / Veterinary License No.</label>
               <input type="text" id="licenseNo" name="licenseNo" />
             </div>
           </div>
