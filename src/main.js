@@ -113,7 +113,7 @@ function init() {
     setStatus("Generating document…");
     try {
       const data = collectFormData();
-      const doc = generateHealthCertificateDocx(data);
+      const doc = await generateHealthCertificateDocx(data);
       const blob = await Packer.toBlob(doc);
       const filename = buildFilename(data);
 

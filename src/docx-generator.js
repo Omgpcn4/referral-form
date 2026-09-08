@@ -2,6 +2,7 @@ import {
   Document,
   Paragraph,
   TextRun,
+  ImageRun,
   Header,
   Footer,
   Table,
@@ -13,8 +14,27 @@ import {
   BorderStyle,
   VerticalAlign,
 } from "docx";
+import logoUrl from "./assets/logo.png";
 
 const FONT = "Sarabun";
+
+// Source logo is 2639x270px; keep that aspect ratio when placed in the header.
+const LOGO_SOURCE_WIDTH = 2639;
+const LOGO_SOURCE_HEIGHT = 270;
+const LOGO_DISPLAY_WIDTH = 220;
+const LOGO_DISPLAY_HEIGHT = Math.round(
+  (LOGO_DISPLAY_WIDTH * LOGO_SOURCE_HEIGHT) / LOGO_SOURCE_WIDTH,
+);
+
+let logoBytesPromise;
+function getLogoBytes() {
+  if (!logoBytesPromise) {
+    logoBytesPromise = fetch(logoUrl)
+      .then((res) => res.arrayBuffer())
+      .then((buf) => new Uint8Array(buf));
+  }
+  return logoBytesPromise;
+}
 
 const PAGE_WIDTH = 11909;
 const PAGE_HEIGHT = 16834;
@@ -69,7 +89,8 @@ function fieldLine(parts) {
   });
 }
 
-function buildHeader() {
+async function buildHeader() {
+  const logoBytes = await getLogoBytes();
   const table = new Table({
     width: { size: CONTENT_WIDTH, type: WidthType.DXA },
     borders: {
@@ -89,10 +110,21 @@ function buildHeader() {
             verticalAlign: VerticalAlign.CENTER,
             children: [
               new Paragraph({
-                children: [run("Arak Animal Hospital Phuket", { bold: true, size: 26 })],
-              }),
-              new Paragraph({
-                children: [run("โรงพยาบาลสัตว์อารักษ์ สาขาภูเก็ต", { bold: true, size: 26 })],
+                children: [
+                  new ImageRun({
+                    type: "png",
+                    data: logoBytes,
+                    transformation: {
+                      width: LOGO_DISPLAY_WIDTH,
+                      height: LOGO_DISPLAY_HEIGHT,
+                    },
+                    altText: {
+                      title: "Arak Animal Hospital Phuket",
+                      description: "Arak Animal Hospital Phuket logo",
+                      name: "logo",
+                    },
+                  }),
+                ],
               }),
             ],
           }),
@@ -170,7 +202,7 @@ function multiLineSection(number, label, text) {
   return paragraphs;
 }
 
-export function generateHealthCertificateDocx(data) {
+export async function generateHealthCertificateDocx(data) {
   const children = [];
 
   children.push(
@@ -289,7 +321,7 @@ export function generateHealthCertificateDocx(data) {
             },
           },
         },
-        headers: { default: buildHeader() },
+        headers: { default: await buildHeader() },
         footers: { default: buildFooter() },
         children,
       },
