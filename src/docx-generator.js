@@ -6,6 +6,9 @@ import {
   Header,
   Footer,
   AlignmentType,
+  HorizontalPositionRelativeFrom,
+  VerticalPositionRelativeFrom,
+  TextWrappingType,
 } from "docx";
 import logoUrl from "./assets/logo.png";
 
@@ -25,13 +28,14 @@ const MARGIN_FOOTER = 284;
 // Source logo is 2639x270px; keep that aspect ratio in the header banner.
 const LOGO_SOURCE_WIDTH = 2639;
 const LOGO_SOURCE_HEIGHT = 270;
-// Stretch the logo to the full printable width so it reaches both margins,
-// matching the original template's edge-to-edge header banner.
-const CONTENT_WIDTH_TWIPS = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
-const LOGO_DISPLAY_WIDTH = Math.round(CONTENT_WIDTH_TWIPS / 15); // twips -> px at 96dpi
+// Float the logo relative to the physical page (not the margins) and stretch
+// it to the full page width, so it bleeds edge-to-edge left and right —
+// matching the original template's floating, margin-bleeding header banner.
+const LOGO_DISPLAY_WIDTH = Math.round(PAGE_WIDTH / 15); // twips -> px at 96dpi
 const LOGO_DISPLAY_HEIGHT = Math.round(
   (LOGO_DISPLAY_WIDTH * LOGO_SOURCE_HEIGHT) / LOGO_SOURCE_WIDTH,
 );
+const LOGO_TOP_OFFSET_EMU = 150000; // small gap from the physical top edge
 
 const UNSELECTED = "○";
 const SELECTED = "●";
@@ -117,12 +121,23 @@ async function buildHeader() {
   return new Header({
     children: [
       new Paragraph({
-        alignment: AlignmentType.CENTER,
         children: [
           new ImageRun({
             type: "png",
             data: logoBytes,
             transformation: { width: LOGO_DISPLAY_WIDTH, height: LOGO_DISPLAY_HEIGHT },
+            floating: {
+              horizontalPosition: {
+                relative: HorizontalPositionRelativeFrom.PAGE,
+                offset: 0,
+              },
+              verticalPosition: {
+                relative: VerticalPositionRelativeFrom.PAGE,
+                offset: LOGO_TOP_OFFSET_EMU,
+              },
+              wrap: { type: TextWrappingType.NONE },
+              allowOverlap: true,
+            },
             altText: {
               title: "Arak Animal Hospital Phuket",
               description: "Arak Animal Hospital Phuket logo",
