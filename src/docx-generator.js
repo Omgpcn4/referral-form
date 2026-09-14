@@ -37,6 +37,17 @@ const LOGO_DISPLAY_HEIGHT = Math.round(
 );
 const LOGO_TOP_OFFSET_EMU = 150000; // small gap from the physical top edge
 
+// The full-width logo is taller than the top page margin, so it would
+// otherwise overlap the title. Push the first paragraph down (in twips)
+// far enough to clear the logo's bottom edge, plus a small visual gap.
+const EMU_PER_TWIP = 635;
+const LOGO_BOTTOM_FROM_PAGE_TOP_TWIPS = Math.round(
+  (LOGO_TOP_OFFSET_EMU + LOGO_DISPLAY_HEIGHT * 9525) / EMU_PER_TWIP,
+);
+const TITLE_CLEARANCE_GAP_TWIPS = 120;
+const TITLE_SPACING_BEFORE_TWIPS =
+  LOGO_BOTTOM_FROM_PAGE_TOP_TWIPS - MARGIN_TOP + TITLE_CLEARANCE_GAP_TWIPS;
+
 const UNSELECTED = "○";
 const SELECTED = "●";
 
@@ -167,7 +178,7 @@ export async function generateReferralFormDocx(data) {
   children.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { after: 0 },
+      spacing: { before: TITLE_SPACING_BEFORE_TWIPS, after: 0 },
       children: [run("ใบส่งตัวสัตว์ป่วย", { bold: true, size: 32 })],
     }),
   );
