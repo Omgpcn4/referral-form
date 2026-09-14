@@ -9,6 +9,8 @@ import {
   HorizontalPositionRelativeFrom,
   VerticalPositionRelativeFrom,
   TextWrappingType,
+  TabStopType,
+  LeaderType,
 } from "docx";
 import logoUrl from "./assets/logo.png";
 
@@ -48,6 +50,13 @@ const TITLE_CLEARANCE_GAP_TWIPS = 120;
 const TITLE_SPACING_BEFORE_TWIPS =
   LOGO_BOTTOM_FROM_PAGE_TOP_TWIPS - MARGIN_TOP + TITLE_CLEARANCE_GAP_TWIPS;
 
+const CONTENT_WIDTH_TWIPS = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
+
+// Date/HN block: align both colons at the same column via tab stops, instead
+// of two independently right-justified lines of differing length.
+const DATE_HN_COLON_POS = Math.round(CONTENT_WIDTH_TWIPS * 0.62);
+const DATE_HN_VALUE_POS = DATE_HN_COLON_POS + 140;
+
 const UNSELECTED = "○";
 const SELECTED = "●";
 
@@ -76,14 +85,29 @@ function run(text, opts = {}) {
   return new TextRun({ text: text ?? "", font: RUN_FONT, size: 20, ...opts });
 }
 
-function labeledLine(parts, opts = {}) {
+function dotFilledLine(parts, opts = {}) {
+  const columnWidth = CONTENT_WIDTH_TWIPS / parts.length;
   const children = [];
+  const tabStops = [];
   parts.forEach((part, i) => {
-    if (i > 0) children.push(run("     "));
     children.push(run(`${part.label} : `, opts));
-    children.push(run(s(part.value), opts));
+    children.push(run(`${s(part.value)} `, opts));
+    children.push(run("\t"));
+    const position = Math.round(columnWidth * (i + 1));
+    tabStops.push({ type: TabStopType.LEFT, position, leader: LeaderType.DOT });
   });
-  return new Paragraph({ spacing: { after: 120 }, children });
+  return new Paragraph({ spacing: { after: 120 }, tabStops, children });
+}
+
+function dateHnLine(label, value, after = 0) {
+  return new Paragraph({
+    spacing: { after },
+    tabStops: [
+      { type: TabStopType.RIGHT, position: DATE_HN_COLON_POS },
+      { type: TabStopType.LEFT, position: DATE_HN_VALUE_POS },
+    ],
+    children: [run("\t"), run(`${label} :`, { size: 18 }), run("\t"), run(value, { size: 18 })],
+  });
 }
 
 function purposeLine(purpose) {
@@ -190,20 +214,8 @@ export async function generateReferralFormDocx(data) {
     }),
   );
 
-  children.push(
-    new Paragraph({
-      alignment: AlignmentType.RIGHT,
-      spacing: { after: 0 },
-      children: [run("วันที่ Date : ", { size: 18 }), run(formatDate(data.date), { size: 18 })],
-    }),
-  );
-  children.push(
-    new Paragraph({
-      alignment: AlignmentType.RIGHT,
-      spacing: { after: 160 },
-      children: [run("HN : ", { size: 18 }), run(s(data.hn), { size: 18 })],
-    }),
-  );
+  children.push(dateHnLine("วันที่ Date", formatDate(data.date)));
+  children.push(dateHnLine("HN", s(data.hn), 160));
 
   children.push(
     new Paragraph({
@@ -213,19 +225,19 @@ export async function generateReferralFormDocx(data) {
   );
 
   children.push(
-    labeledLine([
+    dotFilledLine([
       { label: "ชื่อสัตว์เลี้ยง Pet's name", value: data.petName },
       { label: "ชนิด Species", value: data.species },
       { label: "เพศ Gender", value: data.gender },
     ]),
   );
   children.push(
-    labeledLine([
+    dotFilledLine([
       { label: "พันธุ์ Breed", value: data.breed },
       { label: "อายุ Age", value: data.age },
     ]),
   );
-  children.push(labeledLine([{ label: "ชื่อเจ้าของสัตว์เลี้ยง Owner's name", value: data.ownerName }]));
+  children.push(dotFilledLine([{ label: "ชื่อเจ้าของสัตว์เลี้ยง Owner's name", value: data.ownerName }]));
   children.push(purposeLine(data.purpose));
 
   children.push(...numberedSection(1, "ประวัติอาการ History", data.history));
