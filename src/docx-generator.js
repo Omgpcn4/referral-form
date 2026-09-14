@@ -12,9 +12,7 @@ import {
 } from "docx";
 import logoUrl from "./assets/logo.png";
 
-// Latin runs render in Calibri Light, Thai runs in Angsana New — matches the
-// "majorBidi" theme fonts used throughout Referral_form_PK.docx.
-const RUN_FONT = { ascii: "Calibri Light", hAnsi: "Calibri Light", cs: "Angsana New", eastAsia: "Angsana New" };
+const RUN_FONT = "TH Sarabun PSK";
 
 const PAGE_WIDTH = 11906;
 const PAGE_HEIGHT = 16838;
@@ -73,7 +71,7 @@ function formatDate(isoDate) {
 }
 
 function run(text, opts = {}) {
-  return new TextRun({ text: text ?? "", font: RUN_FONT, size: 20, ...opts });
+  return new TextRun({ text: text ?? "", font: RUN_FONT, size: 22, ...opts });
 }
 
 function labeledLine(parts, opts = {}) {
