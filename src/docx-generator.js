@@ -57,6 +57,10 @@ const CONTENT_WIDTH_TWIPS = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
 const DATE_HN_COLON_POS = Math.round(CONTENT_WIDTH_TWIPS * 0.62);
 const DATE_HN_VALUE_POS = DATE_HN_COLON_POS + 140;
 
+// Small fixed dot flourish before the first field on a dot-filled line, so
+// that line reads as a continuous dotted rule with the text sitting on it.
+const LEADING_DOT_TWIPS = 260;
+
 const UNSELECTED = "○";
 const SELECTED = "●";
 
@@ -87,8 +91,8 @@ function run(text, opts = {}) {
 
 function dotFilledLine(parts, opts = {}) {
   const columnWidth = CONTENT_WIDTH_TWIPS / parts.length;
-  const children = [];
-  const tabStops = [];
+  const children = [run("\t")];
+  const tabStops = [{ type: TabStopType.LEFT, position: LEADING_DOT_TWIPS, leader: LeaderType.DOT }];
   parts.forEach((part, i) => {
     children.push(run(`${part.label} : `, opts));
     children.push(run(`${s(part.value)} `, opts));
@@ -103,10 +107,17 @@ function dateHnLine(label, value, after = 0) {
   return new Paragraph({
     spacing: { after },
     tabStops: [
-      { type: TabStopType.RIGHT, position: DATE_HN_COLON_POS },
+      { type: TabStopType.RIGHT, position: DATE_HN_COLON_POS, leader: LeaderType.DOT },
       { type: TabStopType.LEFT, position: DATE_HN_VALUE_POS },
+      { type: TabStopType.LEFT, position: CONTENT_WIDTH_TWIPS, leader: LeaderType.DOT },
     ],
-    children: [run("\t"), run(`${label} :`, { size: 18 }), run("\t"), run(value, { size: 18 })],
+    children: [
+      run("\t"),
+      run(`${label} :`, { size: 18 }),
+      run("\t"),
+      run(`${value} `, { size: 18 }),
+      run("\t"),
+    ],
   });
 }
 
