@@ -55,11 +55,12 @@ const CONTENT_WIDTH_TWIPS = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
 // Date/HN block: align both colons at the same column via tab stops, instead
 // of two independently right-justified lines of differing length.
 const DATE_HN_COLON_POS = Math.round(CONTENT_WIDTH_TWIPS * 0.62);
-const DATE_HN_VALUE_POS = DATE_HN_COLON_POS + 140;
+const DATE_HN_VALUE_POS = DATE_HN_COLON_POS + 900;
 
-// Small fixed dot flourish before the first field on a dot-filled line, so
-// that line reads as a continuous dotted rule with the text sitting on it.
-const LEADING_DOT_TWIPS = 260;
+// Fraction of each field's column reserved for "Label :" before the value
+// starts — dots fill the reserved-but-unused part on either side of the
+// value itself, never touching the label.
+const FIELD_VALUE_START_FRACTION = 0.55;
 
 const UNSELECTED = "○";
 const SELECTED = "●";
@@ -91,14 +92,18 @@ function run(text, opts = {}) {
 
 function dotFilledLine(parts, opts = {}) {
   const columnWidth = CONTENT_WIDTH_TWIPS / parts.length;
-  const children = [run("\t")];
-  const tabStops = [{ type: TabStopType.LEFT, position: LEADING_DOT_TWIPS, leader: LeaderType.DOT }];
+  const children = [];
+  const tabStops = [];
   parts.forEach((part, i) => {
-    children.push(run(`${part.label} : `, opts));
+    const columnStart = columnWidth * i;
+    const valuePos = Math.round(columnStart + columnWidth * FIELD_VALUE_START_FRACTION);
+    const boundaryPos = Math.round(columnWidth * (i + 1));
+    children.push(run(`${part.label} :`, opts));
+    children.push(run("\t"));
     children.push(run(`${s(part.value)} `, opts));
     children.push(run("\t"));
-    const position = Math.round(columnWidth * (i + 1));
-    tabStops.push({ type: TabStopType.LEFT, position, leader: LeaderType.DOT });
+    tabStops.push({ type: TabStopType.LEFT, position: valuePos, leader: LeaderType.DOT });
+    tabStops.push({ type: TabStopType.LEFT, position: boundaryPos, leader: LeaderType.DOT });
   });
   return new Paragraph({ spacing: { after: 120 }, tabStops, children });
 }
@@ -107,8 +112,8 @@ function dateHnLine(label, value, after = 0) {
   return new Paragraph({
     spacing: { after },
     tabStops: [
-      { type: TabStopType.RIGHT, position: DATE_HN_COLON_POS, leader: LeaderType.DOT },
-      { type: TabStopType.LEFT, position: DATE_HN_VALUE_POS },
+      { type: TabStopType.RIGHT, position: DATE_HN_COLON_POS },
+      { type: TabStopType.LEFT, position: DATE_HN_VALUE_POS, leader: LeaderType.DOT },
       { type: TabStopType.LEFT, position: CONTENT_WIDTH_TWIPS, leader: LeaderType.DOT },
     ],
     children: [
