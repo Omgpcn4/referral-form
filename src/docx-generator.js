@@ -48,10 +48,13 @@ const TITLE_SPACING_BEFORE_TWIPS =
 
 const CONTENT_WIDTH_TWIPS = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
 const CONTENT_HEIGHT_TWIPS = PAGE_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM;
-// Leave headroom below the caption line so a full-page image never crowds
-// the footer.
+// Attachment images start below the floating logo (same clearance as the
+// title) and leave a little headroom above the footer.
+const ATTACHMENT_BOTTOM_BUFFER_TWIPS = 150;
 const ATTACHMENT_MAX_WIDTH_PX = Math.round(CONTENT_WIDTH_TWIPS / 15);
-const ATTACHMENT_MAX_HEIGHT_PX = Math.round((CONTENT_HEIGHT_TWIPS * 0.88) / 15);
+const ATTACHMENT_MAX_HEIGHT_PX = Math.round(
+  (CONTENT_HEIGHT_TWIPS - TITLE_SPACING_BEFORE_TWIPS - ATTACHMENT_BOTTOM_BUFFER_TWIPS) / 15,
+);
 
 const UNSELECTED = "○";
 const SELECTED = "●";
@@ -134,7 +137,7 @@ function numberedSection(number, label, text) {
 
 function buildAttachmentPages(attachments) {
   const children = [];
-  (attachments ?? []).forEach((att, i) => {
+  (attachments ?? []).forEach((att) => {
     const scale = Math.min(
       1,
       ATTACHMENT_MAX_WIDTH_PX / att.width,
@@ -146,13 +149,7 @@ function buildAttachmentPages(attachments) {
     children.push(
       new Paragraph({
         pageBreakBefore: true,
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 120 },
-        children: [run(`แนบ ${i + 1}/${attachments.length} : ${s(att.label)}`, { size: 18 })],
-      }),
-    );
-    children.push(
-      new Paragraph({
+        spacing: { before: TITLE_SPACING_BEFORE_TWIPS },
         alignment: AlignmentType.CENTER,
         children: [
           new ImageRun({
