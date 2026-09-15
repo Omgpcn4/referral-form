@@ -1,5 +1,6 @@
 import { Packer } from "docx";
 import { generateReferralFormDocx, buildFilename } from "./docx-generator.js";
+import { processAttachmentFile } from "./attachments.js";
 
 const DRAFT_KEY = "referral-form-draft-v2";
 
@@ -8,6 +9,11 @@ const dateInput = document.getElementById("date");
 const statusMsg = document.getElementById("status-msg");
 const clearBtn = document.getElementById("clear-draft-btn");
 const generateBtn = document.getElementById("generate-btn");
+const attachmentsInput = document.getElementById("attachments-input");
+const attachmentsList = document.getElementById("attachments-list");
+const attachmentsStatus = document.getElementById("attachments-status");
+
+let attachments = [];
 
 const TEXT_FIELD_IDS = [
   "date",
@@ -88,6 +94,59 @@ function setStatus(message, type) {
   if (type) statusMsg.classList.add(type);
 }
 
+function renderAttachmentsList() {
+  attachmentsList.innerHTML = "";
+  for (const att of attachments) {
+    const li = document.createElement("li");
+    li.className = "attachment-item";
+
+    const img = document.createElement("img");
+    img.src = att.thumbnail;
+    img.alt = att.label;
+    li.appendChild(img);
+
+    const name = document.createElement("span");
+    name.className = "attachment-name";
+    name.textContent = att.label;
+    name.title = att.label;
+    li.appendChild(name);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "attachment-remove";
+    removeBtn.textContent = "×";
+    removeBtn.setAttribute("aria-label", `Remove ${att.label}`);
+    removeBtn.addEventListener("click", () => {
+      attachments = attachments.filter((a) => a.id !== att.id);
+      renderAttachmentsList();
+    });
+    li.appendChild(removeBtn);
+
+    attachmentsList.appendChild(li);
+  }
+}
+
+async function handleAttachmentFiles(fileList) {
+  const files = Array.from(fileList);
+  if (files.length === 0) return;
+  attachmentsStatus.textContent = `Processing ${files.length} file(s)…`;
+  for (const file of files) {
+    try {
+      const processed = await processAttachmentFile(file);
+      attachments.push(...processed);
+    } catch (err) {
+      console.error(err);
+      attachmentsStatus.textContent = `Failed to process ${file.name}: ${err.message}`;
+    }
+  }
+  renderAttachmentsList();
+  if (!attachmentsStatus.textContent.startsWith("Failed")) {
+    attachmentsStatus.textContent = attachments.length
+      ? `${attachments.length} attachment page(s) ready.`
+      : "";
+  }
+}
+
 function init() {
   const draft = loadDraft();
   if (draft) {
@@ -100,11 +159,19 @@ function init() {
   form.addEventListener("input", saveDraft);
   form.addEventListener("change", saveDraft);
 
+  attachmentsInput.addEventListener("change", () => {
+    handleAttachmentFiles(attachmentsInput.files);
+    attachmentsInput.value = "";
+  });
+
   clearBtn.addEventListener("click", () => {
     if (!confirm("Clear all fields and delete the saved draft?")) return;
     form.reset();
     clearDraft();
     dateInput.value = todayIso();
+    attachments = [];
+    renderAttachmentsList();
+    attachmentsStatus.textContent = "";
     setStatus("Form cleared.", "success");
   });
 
@@ -114,6 +181,7 @@ function init() {
     setStatus("Generating document…");
     try {
       const data = collectFormData();
+      data.attachments = attachments;
       const doc = await generateReferralFormDocx(data);
       const blob = await Packer.toBlob(doc);
       const filename = buildFilename(data);

@@ -200,3 +200,63 @@ button.secondary:hover {
 .status-msg.success {
   color: var(--accent-dark);
 }
+
+.attachments-status {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  min-height: 1.1em;
+}
+
+.attachments-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.attachment-item {
+  position: relative;
+  width: 90px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  background: #fff;
+  text-align: center;
+}
+
+.attachment-item img {
+  width: 100%;
+  height: 70px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}
+
+.attachment-item .attachment-name {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-item .attachment-remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: #b3261e;
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 20px;
+  padding: 0;
+  cursor: pointer;
+}

@@ -46,6 +46,13 @@ const TITLE_CLEARANCE_GAP_TWIPS = 120;
 const TITLE_SPACING_BEFORE_TWIPS =
   LOGO_BOTTOM_FROM_PAGE_TOP_TWIPS - MARGIN_TOP + TITLE_CLEARANCE_GAP_TWIPS;
 
+const CONTENT_WIDTH_TWIPS = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
+const CONTENT_HEIGHT_TWIPS = PAGE_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM;
+// Leave headroom below the caption line so a full-page image never crowds
+// the footer.
+const ATTACHMENT_MAX_WIDTH_PX = Math.round(CONTENT_WIDTH_TWIPS / 15);
+const ATTACHMENT_MAX_HEIGHT_PX = Math.round((CONTENT_HEIGHT_TWIPS * 0.88) / 15);
+
 const UNSELECTED = "○";
 const SELECTED = "●";
 
@@ -123,6 +130,42 @@ function numberedSection(number, label, text) {
     });
   }
   return paragraphs;
+}
+
+function buildAttachmentPages(attachments) {
+  const children = [];
+  (attachments ?? []).forEach((att, i) => {
+    const scale = Math.min(
+      1,
+      ATTACHMENT_MAX_WIDTH_PX / att.width,
+      ATTACHMENT_MAX_HEIGHT_PX / att.height,
+    );
+    const width = Math.round(att.width * scale);
+    const height = Math.round(att.height * scale);
+
+    children.push(
+      new Paragraph({
+        pageBreakBefore: true,
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 120 },
+        children: [run(`แนบ ${i + 1}/${attachments.length} : ${s(att.label)}`, { size: 18 })],
+      }),
+    );
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new ImageRun({
+            type: "png",
+            data: att.bytes,
+            transformation: { width, height },
+            altText: { title: att.label, description: att.label, name: att.label },
+          }),
+        ],
+      }),
+    );
+  });
+  return children;
 }
 
 async function buildHeader() {
@@ -260,6 +303,8 @@ export async function generateReferralFormDocx(data) {
       ],
     }),
   );
+
+  children.push(...buildAttachmentPages(data.attachments));
 
   return new Document({
     sections: [
