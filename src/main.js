@@ -9,6 +9,7 @@ const dateInput = document.getElementById("date");
 const statusMsg = document.getElementById("status-msg");
 const clearBtn = document.getElementById("clear-draft-btn");
 const generateBtn = document.getElementById("generate-btn");
+const generatePdfBtn = document.getElementById("generate-pdf-btn");
 const attachmentsInput = document.getElementById("attachments-input");
 const attachmentsList = document.getElementById("attachments-list");
 const attachmentsStatus = document.getElementById("attachments-status");
@@ -86,6 +87,17 @@ function clearDraft() {
   } catch (err) {
     // ignore
   }
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 function setStatus(message, type) {
@@ -185,22 +197,33 @@ function init() {
       const doc = await generateReferralFormDocx(data);
       const blob = await Packer.toBlob(doc);
       const filename = buildFilename(data);
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
+      downloadBlob(blob, filename);
       setStatus(`Downloaded ${filename}`, "success");
     } catch (err) {
       console.error(err);
       setStatus("Failed to generate document. See console for details.", "error");
     } finally {
       generateBtn.disabled = false;
+    }
+  });
+
+  generatePdfBtn.addEventListener("click", async () => {
+    generatePdfBtn.disabled = true;
+    setStatus("Generating PDF…");
+    try {
+      const { generateReferralFormPdf } = await import("./pdf-generator.js");
+      const data = collectFormData();
+      data.attachments = attachments;
+      const pdfBytes = await generateReferralFormPdf(data);
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const filename = buildFilename(data).replace(/\.docx$/, ".pdf");
+      downloadBlob(blob, filename);
+      setStatus(`Downloaded ${filename}`, "success");
+    } catch (err) {
+      console.error(err);
+      setStatus("Failed to generate PDF. See console for details.", "error");
+    } finally {
+      generatePdfBtn.disabled = false;
     }
   });
 }
