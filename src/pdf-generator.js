@@ -9,6 +9,14 @@ const PAGE_WIDTH_PT = 595.28;
 const PAGE_HEIGHT_PT = 841.89;
 const RENDER_SCALE = 2;
 
+// Reserve a header band (for the logo) and a footer band (for the doc-control
+// code) on every page — matching the docx, where the header/footer repeat
+// automatically. Logo aspect ratio matches src/assets/logo.png (2639x270).
+const HEADER_BAND_PX = 96;
+const FOOTER_BAND_PX = 28;
+const LOGO_HEIGHT_PX = Math.round(PAGE_WIDTH_PX * (270 / 2639));
+const FOOTER_TEXT = "FM-HP-013 : Rev.01 : 1/12/2024";
+
 const UNSELECTED = "○";
 const SELECTED = "●";
 
@@ -79,23 +87,11 @@ function purposeLine(purpose) {
 }
 
 function buildPrintableDom(data) {
-  const wrapper = el("div", {
-    position: "relative",
+  const content = el("div", {
     width: `${PAGE_WIDTH_PX}px`,
     background: "#ffffff",
-    boxSizing: "border-box",
-  });
-
-  const logo = document.createElement("img");
-  logo.src = `${import.meta.env.BASE_URL}logo.png`;
-  Object.assign(logo.style, { position: "absolute", top: "0", left: "0", width: "100%", display: "block" });
-  wrapper.appendChild(logo);
-
-  const content = el("div", {
-    paddingTop: "96px",
     paddingLeft: "48px",
     paddingRight: "48px",
-    paddingBottom: "40px",
     boxSizing: "border-box",
   }, [
     el("div", { ...BASE_TEXT, fontSize: "21px", fontWeight: "700", textAlign: "center" }, [
@@ -132,12 +128,8 @@ function buildPrintableDom(data) {
     el("div", { ...BASE_TEXT, fontSize: "13px", textAlign: "center", marginBottom: "24px" }, [
       `ใบอนุญาตเลขที่ Veterinary License No. ${s(data.licenseNo)}`,
     ]),
-    el("div", { ...BASE_TEXT, fontSize: "11px", textAlign: "right", color: "#555" }, [
-      "FM-HP-013 : Rev.01 : 1/12/2024",
-    ]),
   ]);
-  wrapper.appendChild(content);
-  return wrapper;
+  return content;
 }
 
 async function waitForFonts() {
@@ -153,7 +145,48 @@ async function waitForFonts() {
   }
 }
 
-async function renderMainContentPages(data) {
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+    img.src = url;
+  });
+}
+
+function canvasToPngBytes(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("Failed to encode PDF page image"));
+        return;
+      }
+      blob.arrayBuffer().then((buf) => resolve(new Uint8Array(buf)));
+    }, "image/png");
+  });
+}
+
+// Draws the logo header band and footer code line that appear on every page
+// — mirroring the docx, where these come from a real repeating header/footer.
+function drawPageFrame(ctx, logoImg) {
+  const pageWidthPxScaled = PAGE_WIDTH_PX * RENDER_SCALE;
+  const pageHeightPxScaled = PAGE_HEIGHT_PX * RENDER_SCALE;
+  const logoHeightScaled = LOGO_HEIGHT_PX * RENDER_SCALE;
+  ctx.drawImage(logoImg, 0, 0, pageWidthPxScaled, logoHeightScaled);
+
+  ctx.font = `${11 * RENDER_SCALE}px "Sarabun", sans-serif`;
+  ctx.fillStyle = "#555555";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "bottom";
+  ctx.fillText(
+    FOOTER_TEXT,
+    pageWidthPxScaled - 48 * RENDER_SCALE,
+    pageHeightPxScaled - 10 * RENDER_SCALE,
+  );
+}
+
+async function renderMainContentPages(data, logoImg) {
   await waitForFonts();
   const dom = buildPrintableDom(data);
   const host = el("div", {
@@ -164,9 +197,9 @@ async function renderMainContentPages(data) {
   }, [dom]);
   document.body.appendChild(host);
 
-  let canvas;
+  let contentCanvas;
   try {
-    canvas = await html2canvas(dom, {
+    contentCanvas = await html2canvas(dom, {
       scale: RENDER_SCALE,
       useCORS: true,
       backgroundColor: "#ffffff",
@@ -177,68 +210,84 @@ async function renderMainContentPages(data) {
     document.body.removeChild(host);
   }
 
-  const pageHeightPxScaled = PAGE_HEIGHT_PX * RENDER_SCALE;
   const pageWidthPxScaled = PAGE_WIDTH_PX * RENDER_SCALE;
-  const pageCount = Math.max(1, Math.ceil(canvas.height / pageHeightPxScaled));
+  const pageHeightPxScaled = PAGE_HEIGHT_PX * RENDER_SCALE;
+  const headerBandScaled = HEADER_BAND_PX * RENDER_SCALE;
+  const footerBandScaled = FOOTER_BAND_PX * RENDER_SCALE;
+  const availableContentHeightScaled = pageHeightPxScaled - headerBandScaled - footerBandScaled;
+  const pageCount = Math.max(1, Math.ceil(contentCanvas.height / availableContentHeightScaled));
 
   const pages = [];
   for (let i = 0; i < pageCount; i++) {
-    const sliceCanvas = document.createElement("canvas");
-    sliceCanvas.width = pageWidthPxScaled;
-    sliceCanvas.height = pageHeightPxScaled;
-    const ctx = sliceCanvas.getContext("2d");
+    const pageCanvas = document.createElement("canvas");
+    pageCanvas.width = pageWidthPxScaled;
+    pageCanvas.height = pageHeightPxScaled;
+    const ctx = pageCanvas.getContext("2d");
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+    ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
     ctx.drawImage(
-      canvas,
+      contentCanvas,
       0,
-      i * pageHeightPxScaled,
+      i * availableContentHeightScaled,
       pageWidthPxScaled,
-      pageHeightPxScaled,
+      availableContentHeightScaled,
       0,
-      0,
+      headerBandScaled,
       pageWidthPxScaled,
-      pageHeightPxScaled,
+      availableContentHeightScaled,
     );
-    const bytes = await new Promise((resolve, reject) => {
-      sliceCanvas.toBlob((blob) => {
-        if (!blob) {
-          reject(new Error("Failed to encode PDF page image"));
-          return;
-        }
-        blob.arrayBuffer().then((buf) => resolve(new Uint8Array(buf)));
-      }, "image/png");
-    });
-    pages.push(bytes);
+    drawPageFrame(ctx, logoImg);
+    pages.push(await canvasToPngBytes(pageCanvas));
   }
   return pages;
 }
 
+function renderAttachmentPage(att, logoImg) {
+  const pageWidthPxScaled = PAGE_WIDTH_PX * RENDER_SCALE;
+  const pageHeightPxScaled = PAGE_HEIGHT_PX * RENDER_SCALE;
+  const headerBandScaled = HEADER_BAND_PX * RENDER_SCALE;
+  const footerBandScaled = FOOTER_BAND_PX * RENDER_SCALE;
+  const availableHeight = pageHeightPxScaled - headerBandScaled - footerBandScaled;
+  const availableWidth = pageWidthPxScaled - 48 * RENDER_SCALE * 2;
+
+  const pageCanvas = document.createElement("canvas");
+  pageCanvas.width = pageWidthPxScaled;
+  pageCanvas.height = pageHeightPxScaled;
+  const ctx = pageCanvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+
+  const scale = Math.min(1, availableWidth / att.width, availableHeight / att.height);
+  const width = att.width * scale;
+  const height = att.height * scale;
+  const x = (pageWidthPxScaled - width) / 2;
+  const y = headerBandScaled + (availableHeight - height) / 2;
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = async () => {
+      ctx.drawImage(img, x, y, width, height);
+      drawPageFrame(ctx, logoImg);
+      resolve(await canvasToPngBytes(pageCanvas));
+    };
+    img.onerror = () => reject(new Error(`Failed to load attachment image: ${att.label}`));
+    img.src = URL.createObjectURL(new Blob([att.bytes], { type: "image/png" }));
+  });
+}
+
 export async function generateReferralFormPdf(data) {
   const pdfDoc = await PDFDocument.create();
+  const logoImg = await loadImage(`${import.meta.env.BASE_URL}logo.png`);
 
-  const mainPageBytes = await renderMainContentPages(data);
-  for (const bytes of mainPageBytes) {
+  const mainPageBytes = await renderMainContentPages(data, logoImg);
+  const attachmentPageBytes = await Promise.all(
+    (data.attachments ?? []).map((att) => renderAttachmentPage(att, logoImg)),
+  );
+
+  for (const bytes of [...mainPageBytes, ...attachmentPageBytes]) {
     const page = pdfDoc.addPage([PAGE_WIDTH_PT, PAGE_HEIGHT_PT]);
     const png = await pdfDoc.embedPng(bytes);
     page.drawImage(png, { x: 0, y: 0, width: PAGE_WIDTH_PT, height: PAGE_HEIGHT_PT });
-  }
-
-  const marginPt = 36;
-  const maxWidthPt = PAGE_WIDTH_PT - marginPt * 2;
-  const maxHeightPt = PAGE_HEIGHT_PT - marginPt * 2;
-  for (const att of data.attachments ?? []) {
-    const page = pdfDoc.addPage([PAGE_WIDTH_PT, PAGE_HEIGHT_PT]);
-    const png = await pdfDoc.embedPng(att.bytes);
-    const scale = Math.min(1, maxWidthPt / att.width, maxHeightPt / att.height);
-    const width = att.width * scale;
-    const height = att.height * scale;
-    page.drawImage(png, {
-      x: (PAGE_WIDTH_PT - width) / 2,
-      y: (PAGE_HEIGHT_PT - height) / 2,
-      width,
-      height,
-    });
   }
 
   return pdfDoc.save();
