@@ -35,48 +35,17 @@ function el(tag, style, children) {
 
 const BASE_TEXT = { fontFamily: "'Sarabun', sans-serif", fontSize: "15px", color: "#111" };
 
-function dotField(label, value) {
-  return el(
-    "div",
-    { display: "flex", alignItems: "baseline", flex: "1", minWidth: "0", marginRight: "10px" },
-    [
-      el("span", { ...BASE_TEXT, whiteSpace: "nowrap" }, [`${label} :`]),
-      el("span", {
-        flex: "1",
-        minWidth: "8px",
-        borderBottom: "1px dotted #555",
-        margin: "0 4px 3px",
-      }),
-      el("span", { ...BASE_TEXT, whiteSpace: "nowrap" }, [s(value)]),
-      el("span", {
-        flex: "1",
-        minWidth: "8px",
-        borderBottom: "1px dotted #555",
-        margin: "0 0 3px",
-      }),
-    ],
-  );
-}
-
-function dotFieldRow(fields) {
-  return el("div", { display: "flex", gap: "6px", marginBottom: "8px" }, [
-    ...fields.map(([label, value]) => dotField(label, value)),
-  ]);
+function labeledLine(fields) {
+  const parts = [];
+  fields.forEach(([label, value], i) => {
+    if (i > 0) parts.push("     ");
+    parts.push(`${label} : ${s(value)}`);
+  });
+  return el("div", { ...BASE_TEXT, marginBottom: "8px" }, parts);
 }
 
 function dateHnLine(label, value) {
-  return el("div", { display: "flex", justifyContent: "flex-end", gap: "6px" }, [
-    el("span", { ...BASE_TEXT, fontSize: "13px", minWidth: "70px", textAlign: "right" }, [
-      `${label} :`,
-    ]),
-    el("span", {
-      ...BASE_TEXT,
-      fontSize: "13px",
-      minWidth: "90px",
-      textAlign: "left",
-      borderBottom: "1px dotted #555",
-    }, [` ${s(value)} `]),
-  ]);
+  return el("div", { ...BASE_TEXT, fontSize: "13px", textAlign: "right" }, [`${label} : ${s(value)}`]);
 }
 
 function numberedSection(number, label, text) {
@@ -140,16 +109,16 @@ function buildPrintableDom(data) {
     el("div", { ...BASE_TEXT, marginBottom: "10px" }, [
       "เรียน สัตวแพทย์ผู้เกี่ยวข้อง To Whom it may concern",
     ]),
-    dotFieldRow([
+    labeledLine([
       ["ชื่อสัตว์เลี้ยง Pet's name", data.petName],
       ["ชนิด Species", data.species],
       ["เพศ Gender", data.gender],
     ]),
-    dotFieldRow([
+    labeledLine([
       ["พันธุ์ Breed", data.breed],
       ["อายุ Age", data.age],
     ]),
-    dotFieldRow([["ชื่อเจ้าของสัตว์เลี้ยง Owner's name", data.ownerName]]),
+    labeledLine([["ชื่อเจ้าของสัตว์เลี้ยง Owner's name", data.ownerName]]),
     purposeLine(data.purpose),
     numberedSection(1, "ประวัติอาการ History", data.history),
     numberedSection(2, "อาการป่วยปัจจุบัน/ผลการตรวจร่างกาย Physical Examination", data.physicalExam),
