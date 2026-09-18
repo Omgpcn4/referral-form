@@ -6,12 +6,13 @@ import {
   Header,
   Footer,
   AlignmentType,
+  HorizontalPositionRelativeFrom,
+  VerticalPositionRelativeFrom,
+  TextWrappingType,
 } from "docx";
 import logoUrl from "./assets/logo.png";
 
-// Latin runs render in Calibri Light, Thai runs in Angsana New — matches the
-// "majorBidi" theme fonts used throughout Referral_form_PK.docx.
-const RUN_FONT = { ascii: "Calibri Light", hAnsi: "Calibri Light", cs: "Angsana New", eastAsia: "Angsana New" };
+const RUN_FONT = "TH Sarabun PSK";
 
 const PAGE_WIDTH = 11906;
 const PAGE_HEIGHT = 16838;
@@ -25,9 +26,34 @@ const MARGIN_FOOTER = 284;
 // Source logo is 2639x270px; keep that aspect ratio in the header banner.
 const LOGO_SOURCE_WIDTH = 2639;
 const LOGO_SOURCE_HEIGHT = 270;
-const LOGO_DISPLAY_WIDTH = 600;
+// Float the logo relative to the physical page (not the margins) and stretch
+// it to the full page width, so it bleeds edge-to-edge left and right —
+// matching the original template's floating, margin-bleeding header banner.
+const LOGO_DISPLAY_WIDTH = Math.round(PAGE_WIDTH / 15); // twips -> px at 96dpi
 const LOGO_DISPLAY_HEIGHT = Math.round(
   (LOGO_DISPLAY_WIDTH * LOGO_SOURCE_HEIGHT) / LOGO_SOURCE_WIDTH,
+);
+const LOGO_TOP_OFFSET_EMU = 150000; // small gap from the physical top edge
+
+// The full-width logo is taller than the top page margin, so it would
+// otherwise overlap the title. Push the first paragraph down (in twips)
+// far enough to clear the logo's bottom edge, plus a small visual gap.
+const EMU_PER_TWIP = 635;
+const LOGO_BOTTOM_FROM_PAGE_TOP_TWIPS = Math.round(
+  (LOGO_TOP_OFFSET_EMU + LOGO_DISPLAY_HEIGHT * 9525) / EMU_PER_TWIP,
+);
+const TITLE_CLEARANCE_GAP_TWIPS = 120;
+const TITLE_SPACING_BEFORE_TWIPS =
+  LOGO_BOTTOM_FROM_PAGE_TOP_TWIPS - MARGIN_TOP + TITLE_CLEARANCE_GAP_TWIPS;
+
+const CONTENT_WIDTH_TWIPS = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
+const CONTENT_HEIGHT_TWIPS = PAGE_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM;
+// Attachment images start below the floating logo (same clearance as the
+// title) and leave a little headroom above the footer.
+const ATTACHMENT_BOTTOM_BUFFER_TWIPS = 150;
+const ATTACHMENT_MAX_WIDTH_PX = Math.round(CONTENT_WIDTH_TWIPS / 15);
+const ATTACHMENT_MAX_HEIGHT_PX = Math.round(
+  (CONTENT_HEIGHT_TWIPS - TITLE_SPACING_BEFORE_TWIPS - ATTACHMENT_BOTTOM_BUFFER_TWIPS) / 15,
 );
 
 const UNSELECTED = "○";
@@ -55,7 +81,7 @@ function formatDate(isoDate) {
 }
 
 function run(text, opts = {}) {
-  return new TextRun({ text: text ?? "", font: RUN_FONT, size: 20, ...opts });
+  return new TextRun({ text: text ?? "", font: RUN_FONT, size: 22, ...opts });
 }
 
 function labeledLine(parts, opts = {}) {
@@ -109,17 +135,58 @@ function numberedSection(number, label, text) {
   return paragraphs;
 }
 
+function buildAttachmentPages(attachments) {
+  const children = [];
+  (attachments ?? []).forEach((att) => {
+    const scale = Math.min(
+      1,
+      ATTACHMENT_MAX_WIDTH_PX / att.width,
+      ATTACHMENT_MAX_HEIGHT_PX / att.height,
+    );
+    const width = Math.round(att.width * scale);
+    const height = Math.round(att.height * scale);
+
+    children.push(
+      new Paragraph({
+        pageBreakBefore: true,
+        spacing: { before: TITLE_SPACING_BEFORE_TWIPS },
+        alignment: AlignmentType.CENTER,
+        children: [
+          new ImageRun({
+            type: "png",
+            data: att.bytes,
+            transformation: { width, height },
+            altText: { title: att.label, description: att.label, name: att.label },
+          }),
+        ],
+      }),
+    );
+  });
+  return children;
+}
+
 async function buildHeader() {
   const logoBytes = await getLogoBytes();
   return new Header({
     children: [
       new Paragraph({
-        alignment: AlignmentType.CENTER,
         children: [
           new ImageRun({
             type: "png",
             data: logoBytes,
             transformation: { width: LOGO_DISPLAY_WIDTH, height: LOGO_DISPLAY_HEIGHT },
+            floating: {
+              horizontalPosition: {
+                relative: HorizontalPositionRelativeFrom.PAGE,
+                offset: 0,
+              },
+              verticalPosition: {
+                relative: VerticalPositionRelativeFrom.PAGE,
+                offset: LOGO_TOP_OFFSET_EMU,
+              },
+              wrap: { type: TextWrappingType.NONE },
+              allowOverlap: true,
+            },
             altText: {
               title: "Arak Animal Hospital Phuket",
               description: "Arak Animal Hospital Phuket logo",
@@ -149,7 +216,7 @@ export async function generateReferralFormDocx(data) {
   children.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { after: 0 },
+      spacing: { before: TITLE_SPACING_BEFORE_TWIPS, after: 0 },
       children: [run("ใบส่งตัวสัตว์ป่วย", { bold: true, size: 32 })],
     }),
   );
@@ -233,6 +300,8 @@ export async function generateReferralFormDocx(data) {
       ],
     }),
   );
+
+  children.push(...buildAttachmentPages(data.attachments));
 
   return new Document({
     sections: [
