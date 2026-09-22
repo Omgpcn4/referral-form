@@ -1,6 +1,7 @@
 import { Packer } from "docx";
 import { generateReferralFormDocx, buildFilename } from "./docx-generator.js";
 import { processAttachmentFile } from "./attachments.js";
+import { parseRichText, initRichTextEditors } from "./richtext.js";
 
 const DRAFT_KEY = "referral-form-draft-v2";
 
@@ -25,14 +26,17 @@ const TEXT_FIELD_IDS = [
   "breed",
   "age",
   "ownerName",
+  "vetName",
+  "licenseNo",
+];
+
+const RICHTEXT_FIELD_IDS = [
   "history",
   "physicalExam",
   "laboratory",
   "diagnosis",
   "treatment",
   "others",
-  "vetName",
-  "licenseNo",
 ];
 
 function todayIso() {
@@ -47,6 +51,25 @@ function collectFormData() {
     const el = document.getElementById(id);
     data[id] = el ? el.value : "";
   }
+  for (const id of RICHTEXT_FIELD_IDS) {
+    const el = document.getElementById(id);
+    data[id] = el ? parseRichText(el) : [];
+  }
+  const purposeEl = form.querySelector('input[name="purpose"]:checked');
+  data.purpose = purposeEl ? purposeEl.value : "";
+  return data;
+}
+
+function collectDraftData() {
+  const data = {};
+  for (const id of TEXT_FIELD_IDS) {
+    const el = document.getElementById(id);
+    data[id] = el ? el.value : "";
+  }
+  for (const id of RICHTEXT_FIELD_IDS) {
+    const el = document.getElementById(id);
+    data[id] = el ? el.innerHTML : "";
+  }
   const purposeEl = form.querySelector('input[name="purpose"]:checked');
   data.purpose = purposeEl ? purposeEl.value : "";
   return data;
@@ -57,6 +80,10 @@ function applyFormData(data) {
     const el = document.getElementById(id);
     if (el && data[id] != null) el.value = data[id];
   }
+  for (const id of RICHTEXT_FIELD_IDS) {
+    const el = document.getElementById(id);
+    if (el && data[id] != null) el.innerHTML = data[id];
+  }
   if (data.purpose) {
     const purposeEl = form.querySelector(`input[name="purpose"][value="${data.purpose}"]`);
     if (purposeEl) purposeEl.checked = true;
@@ -65,7 +92,7 @@ function applyFormData(data) {
 
 function saveDraft() {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(collectFormData()));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(collectDraftData()));
   } catch (err) {
     // localStorage unavailable (private browsing, quota, etc.) — draft saving is best-effort
   }
@@ -160,6 +187,8 @@ async function handleAttachmentFiles(fileList) {
 }
 
 function init() {
+  initRichTextEditors();
+
   const draft = loadDraft();
   if (draft) {
     applyFormData(draft);
@@ -179,6 +208,9 @@ function init() {
   clearBtn.addEventListener("click", () => {
     if (!confirm("Clear all fields and delete the saved draft?")) return;
     form.reset();
+    for (const id of RICHTEXT_FIELD_IDS) {
+      document.getElementById(id).innerHTML = "";
+    }
     clearDraft();
     dateInput.value = todayIso();
     attachments = [];

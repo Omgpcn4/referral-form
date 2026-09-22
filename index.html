@@ -88,27 +88,57 @@
         <section class="card">
           <div class="field">
             <label for="history">1. ประวัติอาการ / History</label>
-            <textarea id="history" name="history" rows="4"></textarea>
+            <div class="richtext-toolbar" data-target="history">
+              <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+              <button type="button" data-cmd="bullet" title="Bullet list">• List</button>
+              <button type="button" data-cmd="number" title="Numbered list">1. List</button>
+            </div>
+            <div id="history" class="richtext-input" contenteditable="true"></div>
           </div>
           <div class="field">
             <label for="physicalExam">2. อาการป่วยปัจจุบัน/ผลการตรวจร่างกาย / Physical Examination</label>
-            <textarea id="physicalExam" name="physicalExam" rows="4"></textarea>
+            <div class="richtext-toolbar" data-target="physicalExam">
+              <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+              <button type="button" data-cmd="bullet" title="Bullet list">• List</button>
+              <button type="button" data-cmd="number" title="Numbered list">1. List</button>
+            </div>
+            <div id="physicalExam" class="richtext-input" contenteditable="true"></div>
           </div>
           <div class="field">
             <label for="laboratory">3. ผลการตรวจทางห้องปฏิบัติการ / Laboratory</label>
-            <textarea id="laboratory" name="laboratory" rows="4"></textarea>
+            <div class="richtext-toolbar" data-target="laboratory">
+              <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+              <button type="button" data-cmd="bullet" title="Bullet list">• List</button>
+              <button type="button" data-cmd="number" title="Numbered list">1. List</button>
+            </div>
+            <div id="laboratory" class="richtext-input" contenteditable="true"></div>
           </div>
           <div class="field">
             <label for="diagnosis">4. การวินิจฉัยเบื้องต้น / Diagnosis</label>
-            <textarea id="diagnosis" name="diagnosis" rows="4"></textarea>
+            <div class="richtext-toolbar" data-target="diagnosis">
+              <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+              <button type="button" data-cmd="bullet" title="Bullet list">• List</button>
+              <button type="button" data-cmd="number" title="Numbered list">1. List</button>
+            </div>
+            <div id="diagnosis" class="richtext-input" contenteditable="true"></div>
           </div>
           <div class="field">
             <label for="treatment">5. การรักษา / Treatment</label>
-            <textarea id="treatment" name="treatment" rows="4"></textarea>
+            <div class="richtext-toolbar" data-target="treatment">
+              <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+              <button type="button" data-cmd="bullet" title="Bullet list">• List</button>
+              <button type="button" data-cmd="number" title="Numbered list">1. List</button>
+            </div>
+            <div id="treatment" class="richtext-input" contenteditable="true"></div>
           </div>
           <div class="field">
             <label for="others">6. รายละเอียดอื่นๆ / Others</label>
-            <textarea id="others" name="others" rows="4"></textarea>
+            <div class="richtext-toolbar" data-target="others">
+              <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+              <button type="button" data-cmd="bullet" title="Bullet list">• List</button>
+              <button type="button" data-cmd="number" title="Numbered list">1. List</button>
+            </div>
+            <div id="others" class="richtext-input" contenteditable="true"></div>
           </div>
         </section>
 

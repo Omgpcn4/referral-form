@@ -47,27 +47,50 @@ function labeledLine(fields) {
   const parts = [];
   fields.forEach(([label, value], i) => {
     if (i > 0) parts.push("     ");
-    parts.push(`${label} : ${s(value)}`);
+    parts.push(`${label}: ${s(value)}`);
   });
   return el("div", { ...BASE_TEXT, marginBottom: "8px" }, parts);
 }
 
 function dateHnLine(label, value) {
-  return el("div", { ...BASE_TEXT, fontSize: "13px", textAlign: "right" }, [`${label} : ${s(value)}`]);
+  return el("div", { ...BASE_TEXT, fontSize: "13px", textAlign: "right" }, [`${label}: ${s(value)}`]);
 }
 
-function numberedSection(number, label, text) {
-  const lines = s(text)
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+function blockLineStyle(block) {
+  return { ...BASE_TEXT, fontSize: "13px", fontWeight: block.bold ? "700" : "400" };
+}
+
+function renderBlocks(blocks) {
+  const nodes = [];
+  let i = 0;
+  while (i < blocks.length) {
+    const block = blocks[i];
+    if (block.type === "bullet" || block.type === "number") {
+      const groupType = block.type;
+      const items = [];
+      while (i < blocks.length && blocks[i].type === groupType) {
+        items.push(el("li", blockLineStyle(blocks[i]), [blocks[i].text]));
+        i++;
+      }
+      nodes.push(
+        el(groupType === "bullet" ? "ul" : "ol", {
+          marginLeft: "18px",
+          marginTop: "0",
+          marginBottom: "0",
+        }, items),
+      );
+    } else {
+      nodes.push(el("div", { ...blockLineStyle(block), marginLeft: "18px" }, [block.text]));
+      i++;
+    }
+  }
+  return nodes;
+}
+
+function numberedSection(number, label, blocks) {
   return el("div", { marginBottom: "6px" }, [
     el("div", { ...BASE_TEXT, marginLeft: "18px", marginBottom: "2px" }, [`${number}. ${label}`]),
-    ...(lines.length
-      ? lines.map((line) =>
-          el("div", { ...BASE_TEXT, fontSize: "13px", marginLeft: "18px" }, [line]),
-        )
-      : [el("div", { height: "14px" })]),
+    ...(blocks && blocks.length ? renderBlocks(blocks) : [el("div", { height: "14px" })]),
   ]);
 }
 

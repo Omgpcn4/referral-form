@@ -9,8 +9,11 @@ import {
   HorizontalPositionRelativeFrom,
   VerticalPositionRelativeFrom,
   TextWrappingType,
+  LevelFormat,
 } from "docx";
 import logoUrl from "./assets/logo.png";
+
+const NUMBERED_LIST_REFERENCE = "clinical-numbered-list";
 
 const RUN_FONT = "TH Sarabun PSK";
 
@@ -88,7 +91,7 @@ function labeledLine(parts, opts = {}) {
   const children = [];
   parts.forEach((part, i) => {
     if (i > 0) children.push(run("     "));
-    children.push(run(`${part.label} : `, opts));
+    children.push(run(`${part.label}: `, opts));
     children.push(run(s(part.value), opts));
   });
   return new Paragraph({ spacing: { after: 120 }, children });
@@ -109,7 +112,7 @@ function purposeLine(purpose) {
   return new Paragraph({ spacing: { after: 120 }, children });
 }
 
-function numberedSection(number, label, text) {
+function numberedSection(number, label, blocks) {
   const paragraphs = [
     new Paragraph({
       indent: { left: 360 },
@@ -117,19 +120,28 @@ function numberedSection(number, label, text) {
       children: [run(`${number}. ${label}`)],
     }),
   ];
-  const lines = s(text)
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-  if (lines.length === 0) {
+  if (!blocks || blocks.length === 0) {
     paragraphs.push(
       new Paragraph({ indent: { left: 360 }, children: [run("", { size: 18 })] }),
     );
   } else {
-    lines.forEach((line) => {
-      paragraphs.push(
-        new Paragraph({ indent: { left: 360 }, children: [run(line, { size: 18 })] }),
-      );
+    blocks.forEach((block) => {
+      const textRun = run(block.text, { size: 18, bold: block.bold || undefined });
+      if (block.type === "bullet") {
+        paragraphs.push(
+          new Paragraph({ indent: { left: 360 }, bullet: { level: 0 }, children: [textRun] }),
+        );
+      } else if (block.type === "number") {
+        paragraphs.push(
+          new Paragraph({
+            indent: { left: 360 },
+            numbering: { reference: NUMBERED_LIST_REFERENCE, level: 0 },
+            children: [textRun],
+          }),
+        );
+      } else {
+        paragraphs.push(new Paragraph({ indent: { left: 360 }, children: [textRun] }));
+      }
     });
   }
   return paragraphs;
@@ -232,14 +244,14 @@ export async function generateReferralFormDocx(data) {
     new Paragraph({
       alignment: AlignmentType.RIGHT,
       spacing: { after: 0 },
-      children: [run("วันที่ Date : ", { size: 18 }), run(formatDate(data.date), { size: 18 })],
+      children: [run("วันที่ Date: ", { size: 18 }), run(formatDate(data.date), { size: 18 })],
     }),
   );
   children.push(
     new Paragraph({
       alignment: AlignmentType.RIGHT,
       spacing: { after: 160 },
-      children: [run("HN : ", { size: 18 }), run(s(data.hn), { size: 18 })],
+      children: [run("HN: ", { size: 18 }), run(s(data.hn), { size: 18 })],
     }),
   );
 
@@ -304,6 +316,22 @@ export async function generateReferralFormDocx(data) {
   children.push(...buildAttachmentPages(data.attachments));
 
   return new Document({
+    numbering: {
+      config: [
+        {
+          reference: NUMBERED_LIST_REFERENCE,
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.DECIMAL,
+              text: "%1.",
+              alignment: AlignmentType.START,
+              style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+            },
+          ],
+        },
+      ],
+    },
     sections: [
       {
         properties: {

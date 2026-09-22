@@ -104,6 +104,55 @@ textarea:focus {
   outline-offset: -1px;
 }
 
+.richtext-toolbar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.richtext-toolbar button {
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.richtext-toolbar button:hover {
+  background: #eceeec;
+}
+
+.richtext-toolbar button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.richtext-input {
+  width: 100%;
+  font: inherit;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  min-height: 70px;
+}
+
+.richtext-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.richtext-input ul,
+.richtext-input ol {
+  margin: 0;
+  padding-left: 22px;
+}
+
 .row {
   display: flex;
   gap: 12px;
