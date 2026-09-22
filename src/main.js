@@ -319,6 +319,7 @@ function init() {
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!form.reportValidity()) return;
     generateBtn.disabled = true;
     setStatus("Generating document…");
     try {
@@ -339,6 +340,7 @@ function init() {
   });
 
   generatePdfBtn.addEventListener("click", async () => {
+    if (!form.reportValidity()) return;
     generatePdfBtn.disabled = true;
     setStatus("Generating PDF…");
     try {

@@ -39,15 +39,28 @@
           <div class="row">
             <div class="field grow">
               <label for="petName">ชื่อสัตว์เลี้ยง / Pet's name</label>
-              <input type="text" id="petName" name="petName" />
+              <input type="text" id="petName" name="petName" required />
             </div>
             <div class="field">
               <label for="species">ชนิด / Species</label>
-              <input type="text" id="species" name="species" />
+              <input type="text" id="species" name="species" list="speciesOptions" />
+              <datalist id="speciesOptions">
+                <option value="สุนัข / Dog"></option>
+                <option value="แมว / Cat"></option>
+                <option value="กระต่าย / Rabbit"></option>
+                <option value="นก / Bird"></option>
+                <option value="อื่นๆ / Other"></option>
+              </datalist>
             </div>
             <div class="field">
               <label for="gender">เพศ / Gender</label>
-              <input type="text" id="gender" name="gender" />
+              <input type="text" id="gender" name="gender" list="genderOptions" />
+              <datalist id="genderOptions">
+                <option value="เพศผู้ / Male"></option>
+                <option value="เพศเมีย / Female"></option>
+                <option value="เพศผู้ทำหมัน / Male (Neutered)"></option>
+                <option value="เพศเมียทำหมัน / Female (Spayed)"></option>
+              </datalist>
             </div>
           </div>
           <div class="row">
@@ -62,7 +75,7 @@
           </div>
           <div class="field">
             <label for="ownerName">ชื่อเจ้าของสัตว์เลี้ยง / Owner's name</label>
-            <input type="text" id="ownerName" name="ownerName" />
+            <input type="text" id="ownerName" name="ownerName" required />
           </div>
         </section>
 
