@@ -94,6 +94,13 @@ export function initRichTextEditors(root = document) {
       });
     });
 
+    editor.addEventListener("keydown", (event) => {
+      if (event.key !== "Tab") return;
+      event.preventDefault();
+      document.execCommand(event.shiftKey ? "outdent" : "indent", false, null);
+      updateToolbarState(toolbar, editor);
+    });
+
     const sync = () => updateToolbarState(toolbar, editor);
     editor.addEventListener("keyup", sync);
     editor.addEventListener("mouseup", sync);
