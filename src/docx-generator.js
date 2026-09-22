@@ -4,7 +4,6 @@ import {
   TextRun,
   ImageRun,
   Header,
-  Footer,
   AlignmentType,
   HorizontalPositionRelativeFrom,
   VerticalPositionRelativeFrom,
@@ -211,17 +210,6 @@ async function buildHeader() {
   });
 }
 
-function buildFooter() {
-  return new Footer({
-    children: [
-      new Paragraph({
-        alignment: AlignmentType.RIGHT,
-        children: [run("FM-HP-013 : Rev.01 : 1/12/2024", { size: 24 })],
-      }),
-    ],
-  });
-}
-
 export async function generateReferralFormDocx(data) {
   const children = [];
 
@@ -348,7 +336,6 @@ export async function generateReferralFormDocx(data) {
           },
         },
         headers: { default: await buildHeader() },
-        footers: { default: buildFooter() },
         children,
       },
     ],

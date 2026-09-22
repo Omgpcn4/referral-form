@@ -9,13 +9,13 @@ const PAGE_WIDTH_PT = 595.28;
 const PAGE_HEIGHT_PT = 841.89;
 const RENDER_SCALE = 2;
 
-// Reserve a header band (for the logo) and a footer band (for the doc-control
-// code) on every page — matching the docx, where the header/footer repeat
-// automatically. Logo aspect ratio matches src/assets/logo.png (2639x270).
+// Reserve a header band (for the logo) on every page — matching the docx,
+// where the header repeats automatically. FOOTER_BAND_PX is just a bottom
+// margin now (no footer content, but keeps content off the page edge).
+// Logo aspect ratio matches src/assets/logo.png (2639x270).
 const HEADER_BAND_PX = 96;
 const FOOTER_BAND_PX = 28;
 const LOGO_HEIGHT_PX = Math.round(PAGE_WIDTH_PX * (270 / 2639));
-const FOOTER_TEXT = "FM-HP-013 : Rev.01 : 1/12/2024";
 
 const UNSELECTED = "○";
 const SELECTED = "●";
@@ -190,23 +190,12 @@ function canvasToPngBytes(canvas) {
   });
 }
 
-// Draws the logo header band and footer code line that appear on every page
-// — mirroring the docx, where these come from a real repeating header/footer.
-function drawPageFrame(ctx, logoImg) {
+// Draws the logo header band that appears on every page — mirroring the
+// docx, where this comes from a real repeating header.
+function drawPageHeader(ctx, logoImg) {
   const pageWidthPxScaled = PAGE_WIDTH_PX * RENDER_SCALE;
-  const pageHeightPxScaled = PAGE_HEIGHT_PX * RENDER_SCALE;
   const logoHeightScaled = LOGO_HEIGHT_PX * RENDER_SCALE;
   ctx.drawImage(logoImg, 0, 0, pageWidthPxScaled, logoHeightScaled);
-
-  ctx.font = `${11 * RENDER_SCALE}px "Sarabun", sans-serif`;
-  ctx.fillStyle = "#555555";
-  ctx.textAlign = "right";
-  ctx.textBaseline = "bottom";
-  ctx.fillText(
-    FOOTER_TEXT,
-    pageWidthPxScaled - 48 * RENDER_SCALE,
-    pageHeightPxScaled - 10 * RENDER_SCALE,
-  );
 }
 
 async function renderMainContentPages(data, logoImg) {
@@ -259,7 +248,7 @@ async function renderMainContentPages(data, logoImg) {
       pageWidthPxScaled,
       availableContentHeightScaled,
     );
-    drawPageFrame(ctx, logoImg);
+    drawPageHeader(ctx, logoImg);
     pages.push(await canvasToPngBytes(pageCanvas));
   }
   return pages;
@@ -290,7 +279,7 @@ function renderAttachmentPage(att, logoImg) {
     const img = new Image();
     img.onload = async () => {
       ctx.drawImage(img, x, y, width, height);
-      drawPageFrame(ctx, logoImg);
+      drawPageHeader(ctx, logoImg);
       resolve(await canvasToPngBytes(pageCanvas));
     };
     img.onerror = () => reject(new Error(`Failed to load attachment image: ${att.label}`));
