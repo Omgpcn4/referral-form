@@ -18,6 +18,7 @@ const attachmentsStatus = document.getElementById("attachments-status");
 const vetSelect = document.getElementById("vetSelect");
 const vetNameInput = document.getElementById("vetName");
 const licenseNoInput = document.getElementById("licenseNo");
+const removeVetBtn = document.getElementById("removeVetBtn");
 
 let attachments = [];
 
@@ -149,6 +150,15 @@ function saveVet(name, licenseNo) {
   populateVetSelect(trimmedName);
 }
 
+function removeVet(name) {
+  try {
+    const vets = loadSavedVets().filter((v) => v.name !== name);
+    localStorage.setItem(VETS_KEY, JSON.stringify(vets));
+  } catch (err) {
+    // localStorage unavailable — removal is best-effort
+  }
+}
+
 function populateVetSelect(selectedName) {
   const vets = loadSavedVets();
   vetSelect.innerHTML = "";
@@ -162,7 +172,9 @@ function populateVetSelect(selectedName) {
     option.textContent = vet.licenseNo ? `${vet.name} (${vet.licenseNo})` : vet.name;
     vetSelect.appendChild(option);
   }
-  vetSelect.value = selectedName && vets.some((v) => v.name === selectedName) ? selectedName : "";
+  const matched = selectedName && vets.some((v) => v.name === selectedName);
+  vetSelect.value = matched ? selectedName : "";
+  removeVetBtn.disabled = !matched;
 }
 
 function downloadBlob(blob, filename) {
@@ -251,11 +263,20 @@ function init() {
   vetSelect.addEventListener("change", () => {
     const vets = loadSavedVets();
     const selected = vets.find((v) => v.name === vetSelect.value);
+    removeVetBtn.disabled = !selected;
     if (selected) {
       vetNameInput.value = selected.name;
       licenseNoInput.value = selected.licenseNo;
       saveDraft();
     }
+  });
+
+  removeVetBtn.addEventListener("click", () => {
+    const name = vetSelect.value;
+    if (!name) return;
+    if (!confirm(`Remove "${name}" from the saved veterinarian list?`)) return;
+    removeVet(name);
+    populateVetSelect("");
   });
 
   form.addEventListener("input", saveDraft);

@@ -152,9 +152,12 @@
           <h2>สัตวแพทย์ผู้ส่งตัว / Referring veterinarian</h2>
           <div class="field">
             <label for="vetSelect">เลือกจากรายชื่อที่บันทึกไว้ / Select saved veterinarian</label>
-            <select id="vetSelect">
-              <option value="">+ New veterinarian…</option>
-            </select>
+            <div class="vet-select-row">
+              <select id="vetSelect">
+                <option value="">+ New veterinarian…</option>
+              </select>
+              <button type="button" id="removeVetBtn" class="secondary" title="Remove selected veterinarian" disabled>Remove</button>
+            </div>
           </div>
           <div class="row">
             <div class="field grow">
