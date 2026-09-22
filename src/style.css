@@ -227,12 +227,21 @@ button {
 }
 
 #generate-btn {
-  background: var(--accent);
+  background: #2b579a;
   color: #fff;
 }
 
 #generate-btn:hover {
-  background: var(--accent-dark);
+  background: #204070;
+}
+
+#generate-pdf-btn {
+  background: #dc3c22;
+  color: #fff;
+}
+
+#generate-pdf-btn:hover {
+  background: #b22e19;
 }
 
 button.secondary {
