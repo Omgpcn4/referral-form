@@ -21,6 +21,7 @@ const licenseNoInput = document.getElementById("licenseNo");
 const removeVetBtn = document.getElementById("removeVetBtn");
 
 let attachments = [];
+let selectedVetName = "";
 
 const TEXT_FIELD_IDS = [
   "date",
@@ -132,11 +133,17 @@ function loadSavedVets() {
   }
 }
 
-function saveVet(name, licenseNo) {
+function saveVet(name, licenseNo, originalName) {
   const trimmedName = name.trim();
   if (!trimmedName) return;
   try {
     const vets = loadSavedVets();
+    // Editing a previously-selected vet's name renames that same record
+    // instead of leaving the old one behind as a stale duplicate.
+    if (originalName && originalName !== trimmedName) {
+      const staleIndex = vets.findIndex((v) => v.name === originalName);
+      if (staleIndex !== -1) vets.splice(staleIndex, 1);
+    }
     const existing = vets.find((v) => v.name === trimmedName);
     if (existing) {
       existing.licenseNo = licenseNo.trim();
@@ -148,6 +155,7 @@ function saveVet(name, licenseNo) {
     // localStorage unavailable — saving is best-effort
   }
   populateVetSelect(trimmedName);
+  selectedVetName = trimmedName;
 }
 
 function removeVet(name) {
@@ -259,16 +267,21 @@ function init() {
   }
 
   populateVetSelect(vetNameInput.value);
+  selectedVetName = vetSelect.value;
 
   vetSelect.addEventListener("change", () => {
+    selectedVetName = vetSelect.value;
     const vets = loadSavedVets();
-    const selected = vets.find((v) => v.name === vetSelect.value);
+    const selected = vets.find((v) => v.name === selectedVetName);
     removeVetBtn.disabled = !selected;
     if (selected) {
       vetNameInput.value = selected.name;
       licenseNoInput.value = selected.licenseNo;
-      saveDraft();
+    } else {
+      vetNameInput.value = "";
+      licenseNoInput.value = "";
     }
+    saveDraft();
   });
 
   removeVetBtn.addEventListener("click", () => {
@@ -277,6 +290,7 @@ function init() {
     if (!confirm(`Remove "${name}" from the saved veterinarian list?`)) return;
     removeVet(name);
     populateVetSelect("");
+    selectedVetName = "";
   });
 
   form.addEventListener("input", saveDraft);
@@ -295,6 +309,8 @@ function init() {
     }
     clearDraft();
     dateInput.value = todayIso();
+    selectedVetName = "";
+    removeVetBtn.disabled = true;
     attachments = [];
     renderAttachmentsList();
     attachmentsStatus.textContent = "";
@@ -308,7 +324,7 @@ function init() {
     try {
       const data = collectFormData();
       data.attachments = attachments;
-      saveVet(data.vetName, data.licenseNo);
+      saveVet(data.vetName, data.licenseNo, selectedVetName);
       const doc = await generateReferralFormDocx(data);
       const blob = await Packer.toBlob(doc);
       const filename = buildFilename(data);
@@ -329,7 +345,7 @@ function init() {
       const { generateReferralFormPdf } = await import("./pdf-generator.js");
       const data = collectFormData();
       data.attachments = attachments;
-      saveVet(data.vetName, data.licenseNo);
+      saveVet(data.vetName, data.licenseNo, selectedVetName);
       const pdfBytes = await generateReferralFormPdf(data);
       const blob = new Blob([pdfBytes], { type: "application/pdf" });
       const filename = buildFilename(data).replace(/\.docx$/, ".pdf");
