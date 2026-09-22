@@ -4,6 +4,7 @@ import { processAttachmentFile } from "./attachments.js";
 import { parseRichText, initRichTextEditors } from "./richtext.js";
 
 const DRAFT_KEY = "referral-form-draft-v2";
+const VETS_KEY = "referral-form-vets-v1";
 
 const form = document.getElementById("cert-form");
 const dateInput = document.getElementById("date");
@@ -14,6 +15,9 @@ const generatePdfBtn = document.getElementById("generate-pdf-btn");
 const attachmentsInput = document.getElementById("attachments-input");
 const attachmentsList = document.getElementById("attachments-list");
 const attachmentsStatus = document.getElementById("attachments-status");
+const vetSelect = document.getElementById("vetSelect");
+const vetNameInput = document.getElementById("vetName");
+const licenseNoInput = document.getElementById("licenseNo");
 
 let attachments = [];
 
@@ -116,6 +120,51 @@ function clearDraft() {
   }
 }
 
+function loadSavedVets() {
+  try {
+    const raw = localStorage.getItem(VETS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveVet(name, licenseNo) {
+  const trimmedName = name.trim();
+  if (!trimmedName) return;
+  try {
+    const vets = loadSavedVets();
+    const existing = vets.find((v) => v.name === trimmedName);
+    if (existing) {
+      existing.licenseNo = licenseNo.trim();
+    } else {
+      vets.push({ name: trimmedName, licenseNo: licenseNo.trim() });
+    }
+    localStorage.setItem(VETS_KEY, JSON.stringify(vets));
+  } catch (err) {
+    // localStorage unavailable — saving is best-effort
+  }
+  populateVetSelect(trimmedName);
+}
+
+function populateVetSelect(selectedName) {
+  const vets = loadSavedVets();
+  vetSelect.innerHTML = "";
+  const newOption = document.createElement("option");
+  newOption.value = "";
+  newOption.textContent = "+ New veterinarian…";
+  vetSelect.appendChild(newOption);
+  for (const vet of vets) {
+    const option = document.createElement("option");
+    option.value = vet.name;
+    option.textContent = vet.licenseNo ? `${vet.name} (${vet.licenseNo})` : vet.name;
+    vetSelect.appendChild(option);
+  }
+  vetSelect.value = selectedName && vets.some((v) => v.name === selectedName) ? selectedName : "";
+}
+
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -197,6 +246,18 @@ function init() {
     dateInput.value = todayIso();
   }
 
+  populateVetSelect(vetNameInput.value);
+
+  vetSelect.addEventListener("change", () => {
+    const vets = loadSavedVets();
+    const selected = vets.find((v) => v.name === vetSelect.value);
+    if (selected) {
+      vetNameInput.value = selected.name;
+      licenseNoInput.value = selected.licenseNo;
+      saveDraft();
+    }
+  });
+
   form.addEventListener("input", saveDraft);
   form.addEventListener("change", saveDraft);
 
@@ -226,6 +287,7 @@ function init() {
     try {
       const data = collectFormData();
       data.attachments = attachments;
+      saveVet(data.vetName, data.licenseNo);
       const doc = await generateReferralFormDocx(data);
       const blob = await Packer.toBlob(doc);
       const filename = buildFilename(data);
@@ -246,6 +308,7 @@ function init() {
       const { generateReferralFormPdf } = await import("./pdf-generator.js");
       const data = collectFormData();
       data.attachments = attachments;
+      saveVet(data.vetName, data.licenseNo);
       const pdfBytes = await generateReferralFormPdf(data);
       const blob = new Blob([pdfBytes], { type: "application/pdf" });
       const filename = buildFilename(data).replace(/\.docx$/, ".pdf");

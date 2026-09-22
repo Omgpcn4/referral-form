@@ -83,6 +83,7 @@ body {
 input[type="text"],
 input[type="date"],
 input[type="number"],
+select,
 textarea {
   width: 100%;
   font: inherit;
@@ -99,6 +100,7 @@ textarea {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
