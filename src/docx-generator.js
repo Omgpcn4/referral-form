@@ -343,7 +343,14 @@ export async function generateReferralFormDocx(data) {
 }
 
 export function buildFilename(data) {
-  const petName = s(data.petName).replace(/[^\p{L}\p{N}]+/gu, "_") || "Pet";
-  const date = s(data.date) || new Date().toISOString().slice(0, 10);
-  return `Referral_Form_${petName}_${date}.docx`;
+  const petName =
+    s(data.petName)
+      .replace(/[\\/:*?"<>|]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim() || "Pet";
+  const isoDate = s(data.date) || new Date().toISOString().slice(0, 10);
+  const [year, month, day] = isoDate.split("-");
+  // "/" isn't allowed in filenames, so DD/MM/YY is written as DD-MM-YY.
+  const date = `${day}-${month}-${year.slice(-2)}`;
+  return `Referral letter ${petName} ${date}.docx`;
 }
