@@ -1,34 +1,61 @@
 import { PDFDocument } from "pdf-lib";
 import html2canvas from "html2canvas";
+import {
+  PAGE,
+  LOGO,
+  DEFAULT_SIZE,
+  NUMBERED_LIST,
+  buildDocumentModel,
+  attachmentLayout,
+} from "./document-model.js";
 
-// A4 at 96dpi (CSS px) for the on-screen render, and in PDF points for the
-// final pages.
-const PAGE_WIDTH_PX = 794;
-const PAGE_HEIGHT_PX = 1123;
-const PAGE_WIDTH_PT = 595.28;
-const PAGE_HEIGHT_PT = 841.89;
+// Lays out the same document model the .docx is built from, the way Word
+// lays it out, so the PDF looks like the .docx exported to PDF. All DOM
+// measurements are CSS px (96 dpi).
+
+const twipsToPx = (twips) => (twips * 96) / 1440;
+const halfPointsToPx = (halfPoints) => (halfPoints / 2) * (96 / 72);
+const pointsToPx = (points) => (points * 96) / 72;
+
 const RENDER_SCALE = 2;
+const PAGE_W = twipsToPx(PAGE.width);
+const PAGE_H = twipsToPx(PAGE.height);
+const BODY_LEFT = twipsToPx(PAGE.marginLeft);
+const COLUMN_W = PAGE_W - BODY_LEFT - twipsToPx(PAGE.marginRight);
+const BODY_BOTTOM = PAGE_H - twipsToPx(PAGE.marginBottom);
 
-// Reserve a header band (for the logo) on every page — matching the docx,
-// where the header repeats automatically. FOOTER_BAND_PX is just a bottom
-// margin now (no footer content, but keeps content off the page edge).
-// Logo aspect ratio matches src/assets/logo.png (2639x270).
-const HEADER_BAND_PX = 96;
-const FOOTER_BAND_PX = 28;
-const LOGO_HEIGHT_PX = Math.round(PAGE_WIDTH_PX * (270 / 2639));
+// An empty paragraph (and the header's one empty paragraph) takes its
+// height from Word's fallback 10pt default font.
+const EMPTY_LINE = pointsToPx(11.5);
+const MARKER_SIZE = pointsToPx(10);
+const MARKER_FONT = "'Times New Roman', 'Liberation Serif', serif";
 
-const UNSELECTED = "○";
-const SELECTED = "●";
+// Word starts the body below the header when the header runs past the top
+// margin: header distance plus that empty header paragraph.
+const BODY_TOP = Math.max(twipsToPx(PAGE.marginTop), twipsToPx(PAGE.marginHeader) + EMPTY_LINE);
 
-function s(value) {
-  return value == null ? "" : String(value).trim();
-}
+const LOGO_TOP = LOGO.topOffsetEmu / 9525;
 
-function formatDate(isoDate) {
-  if (!isoDate) return "";
-  const [year, month, day] = isoDate.split("-");
-  if (!year || !month || !day) return isoDate;
-  return `${day}/${month}/${year}`;
+const FONT_FAMILY = "TH Sarabun New";
+// Single line spacing = (winAscent + winDescent) / unitsPerEm, as in Word.
+const LINE_HEIGHT_FACTOR = { regular: (2619 + 1359) / 2048, bold: (2644 + 1472) / 2048 };
+
+let fontsPromise;
+function loadFonts() {
+  if (!fontsPromise) {
+    const base = import.meta.env.BASE_URL;
+    const faces = [
+      new FontFace(FONT_FAMILY, `url(${base}fonts/THSarabunNew.woff)`, { weight: "400" }),
+      new FontFace(FONT_FAMILY, `url(${base}fonts/THSarabunNew-Bold.woff)`, { weight: "700" }),
+    ];
+    fontsPromise = Promise.all(faces.map((face) => face.load()))
+      .then((loaded) => loaded.forEach((face) => document.fonts.add(face)))
+      .catch((err) => {
+        fontsPromise = null;
+        console.warn("TH Sarabun font failed to load; PDF will use a fallback font.", err);
+      });
+  }
+  return fontsPromise;
 }
 
 function el(tag, style, children) {
@@ -41,131 +68,115 @@ function el(tag, style, children) {
   return node;
 }
 
-const BASE_TEXT = { fontFamily: "'Sarabun', sans-serif", fontSize: "15px", color: "#111" };
+function renderParagraph(p, marker) {
+  const hasText = p.runs.some((r) => r.text);
+  const size = Math.max(...p.runs.map((r) => r.size ?? DEFAULT_SIZE));
+  const bold = p.runs.some((r) => r.bold && r.text);
+  const lineHeight = hasText
+    ? halfPointsToPx(size) * (bold ? LINE_HEIGHT_FACTOR.bold : LINE_HEIGHT_FACTOR.regular)
+    : EMPTY_LINE;
+  const hanging = p.list?.type === "number" ? NUMBERED_LIST.hanging : (p.indent?.hanging ?? 0);
+  const spaceBefore = twipsToPx(p.spacing?.before ?? 0);
+  const spaceAfter = twipsToPx(p.spacing?.after ?? 0);
 
-function labeledLine(fields) {
-  const parts = [];
-  fields.forEach(([label, value], i) => {
-    if (i > 0) parts.push("     ");
-    parts.push(`${label}: ${s(value)}`);
-  });
-  return el("div", { ...BASE_TEXT, marginBottom: "8px" }, parts);
-}
-
-function dateHnLine(label, value) {
-  return el("div", { ...BASE_TEXT, fontSize: "13px", textAlign: "right" }, [`${label}: ${s(value)}`]);
-}
-
-function blockLineStyle(block) {
-  return { ...BASE_TEXT, fontSize: "13px", fontWeight: block.bold ? "700" : "400" };
-}
-
-function renderBlocks(blocks) {
-  const nodes = [];
-  let i = 0;
-  while (i < blocks.length) {
-    const block = blocks[i];
-    if (block.type === "bullet" || block.type === "number") {
-      const groupType = block.type;
-      const items = [];
-      while (i < blocks.length && blocks[i].type === groupType) {
-        items.push(el("li", blockLineStyle(blocks[i]), [blocks[i].text]));
-        i++;
-      }
-      nodes.push(
-        el(groupType === "bullet" ? "ul" : "ol", {
-          marginLeft: "18px",
-          marginTop: "0",
-          marginBottom: "0",
-        }, items),
+  const children = [];
+  if (marker) {
+    children.push(
+      el("span", {
+        display: "inline-block",
+        width: `${twipsToPx(hanging)}px`,
+        textIndent: "0",
+        fontFamily: MARKER_FONT,
+        fontSize: `${MARKER_SIZE}px`,
+        fontWeight: "400",
+      }, [marker]),
+    );
+  }
+  if (hasText) {
+    for (const r of p.runs) {
+      children.push(
+        el("span", {
+          fontSize: `${halfPointsToPx(r.size ?? DEFAULT_SIZE)}px`,
+          fontWeight: r.bold ? "700" : "400",
+        }, [r.text ?? ""]),
       );
-    } else {
-      nodes.push(el("div", { ...blockLineStyle(block), marginLeft: "18px" }, [block.text]));
-      i++;
+    }
+  } else {
+    children.push(el("div", { height: `${EMPTY_LINE}px` }));
+  }
+
+  // Margins (not padding) so adjacent spacing collapses to the larger of
+  // space-after and space-before, which is how Word combines them.
+  const node = el("div", {
+    fontFamily: `'${FONT_FAMILY}', sans-serif`,
+    fontSize: `${halfPointsToPx(size)}px`,
+    lineHeight: `${lineHeight}px`,
+    whiteSpace: "pre-wrap",
+    color: "#000",
+    textAlign: p.align ?? "left",
+    marginTop: `${spaceBefore}px`,
+    marginBottom: `${spaceAfter}px`,
+    paddingLeft: `${twipsToPx(p.indent?.left ?? 0)}px`,
+    textIndent: `${-twipsToPx(hanging)}px`,
+  }, children);
+
+  return { node, lineHeight };
+}
+
+function buildColumn(data) {
+  const listCounters = new Map();
+  const paragraphs = buildDocumentModel(data).map((p) => {
+    let marker = null;
+    if (p.list?.type === "bullet") marker = "●";
+    if (p.list?.type === "number") {
+      const n = (listCounters.get(p.list.group) ?? 0) + 1;
+      listCounters.set(p.list.group, n);
+      marker = `${n}.`;
+    }
+    return renderParagraph(p, marker);
+  });
+  // flow-root keeps the title's space-before inside the column.
+  const column = el("div", {
+    width: `${COLUMN_W}px`,
+    background: "#ffffff",
+    display: "flow-root",
+  }, paragraphs.map((p) => p.node));
+  return { column, paragraphs };
+}
+
+// Every line's vertical extent within the column (excluding paragraph
+// spacing), derived from each paragraph's fixed line height.
+function measureLines(column, paragraphs) {
+  const columnTop = column.getBoundingClientRect().top;
+  const lines = [];
+  for (const { node, lineHeight } of paragraphs) {
+    const rect = node.getBoundingClientRect();
+    const top = rect.top - columnTop;
+    const count = Math.max(1, Math.round(rect.height / lineHeight));
+    for (let i = 0; i < count; i++) {
+      lines.push({ top: top + i * lineHeight, bottom: top + (i + 1) * lineHeight });
     }
   }
-  return nodes;
+  return lines;
 }
 
-function numberedSection(number, label, blocks) {
-  return el("div", { marginBottom: "6px" }, [
-    el("div", { ...BASE_TEXT, marginLeft: "18px", marginBottom: "2px" }, [`${number}. ${label}`]),
-    ...(blocks && blocks.length ? renderBlocks(blocks) : [el("div", { height: "14px" })]),
-  ]);
-}
-
-function purposeLine(purpose) {
-  const options = [
-    { key: "diagnosis", th: "รับการวินิจฉัย", en: "Diagnosis" },
-    { key: "treatment", th: "รับการรักษา", en: "Treatment" },
-    { key: "ownerRequest", th: "ตามความต้องการของเจ้าของ", en: "Owner request" },
-  ];
-  return el("div", { ...BASE_TEXT, marginBottom: "10px" }, [
-    "เพื่อ For :  ",
-    ...options.map((opt, i) => {
-      const mark = purpose === opt.key ? SELECTED : UNSELECTED;
-      return `${i > 0 ? "     " : ""}${mark} ${opt.th} ${opt.en}`;
-    }),
-  ]);
-}
-
-function buildPrintableDom(data) {
-  const content = el("div", {
-    width: `${PAGE_WIDTH_PX}px`,
-    background: "#ffffff",
-    paddingLeft: "48px",
-    paddingRight: "48px",
-    boxSizing: "border-box",
-  }, [
-    el("div", { ...BASE_TEXT, fontSize: "21px", fontWeight: "700", textAlign: "center" }, [
-      "ใบส่งตัวสัตว์ป่วย",
-    ]),
-    el("div", { ...BASE_TEXT, fontSize: "21px", fontWeight: "700", textAlign: "center", marginBottom: "10px" }, [
-      "Referral Form",
-    ]),
-    dateHnLine("วันที่ Date", formatDate(data.date)),
-    el("div", { marginBottom: "10px" }, [dateHnLine("HN", s(data.hn))]),
-    el("div", { ...BASE_TEXT, marginBottom: "10px" }, [
-      "เรียน สัตวแพทย์ผู้เกี่ยวข้อง To Whom it may concern",
-    ]),
-    labeledLine([
-      ["ชื่อสัตว์เลี้ยง Pet's name", data.petName],
-      ["ชนิด Species", data.species],
-      ["เพศ Gender", data.gender],
-    ]),
-    labeledLine([
-      ["พันธุ์ Breed", data.breed],
-      ["อายุ Age", data.age],
-    ]),
-    labeledLine([["ชื่อเจ้าของสัตว์เลี้ยง Owner's name", data.ownerName]]),
-    purposeLine(data.purpose),
-    numberedSection(1, "ประวัติอาการ History", data.history),
-    numberedSection(2, "อาการป่วยปัจจุบัน/ผลการตรวจร่างกาย Physical Examination", data.physicalExam),
-    numberedSection(3, "ผลการตรวจทางห้องปฏิบัติการ Laboratory", data.laboratory),
-    numberedSection(4, "การวินิจฉัยเบื้องต้น Diagnosis", data.diagnosis),
-    numberedSection(5, "การรักษา Treatment", data.treatment),
-    numberedSection(6, "รายละเอียดอื่นๆ Others", data.others),
-    el("div", { ...BASE_TEXT, textAlign: "center", marginTop: "20px" }, ["เรียนมาเพื่อทราบ Sincerely,"]),
-    el("div", { height: "36px" }),
-    el("div", { ...BASE_TEXT, fontSize: "13px", textAlign: "center" }, [`(${s(data.vetName)})`]),
-    el("div", { ...BASE_TEXT, fontSize: "13px", textAlign: "center", marginBottom: "24px" }, [
-      `ใบอนุญาตเลขที่ Veterinary License No. ${s(data.licenseNo)}`,
-    ]),
-  ]);
-  return content;
-}
-
-async function waitForFonts() {
-  if (!document.fonts) return;
-  try {
-    await Promise.all([
-      document.fonts.load('400 16px "Sarabun"'),
-      document.fonts.load('700 16px "Sarabun"'),
-    ]);
-    await document.fonts.ready;
-  } catch (err) {
-    // Web font failed to load (offline, blocked, etc.) — proceed with whatever renders.
+// Breaks pages between lines, never through one. The first page keeps the
+// title's space-before; later pages drop the space-before of the paragraph
+// that starts them, as Word does after a natural page break.
+function paginate(lines) {
+  const available = BODY_BOTTOM - BODY_TOP;
+  const pages = [];
+  let start = 0;
+  let end = 0;
+  for (const line of lines) {
+    if (line.bottom - start > available && end > start) {
+      pages.push({ start, end });
+      start = line.top;
+    }
+    end = line.bottom;
   }
+  pages.push({ start, end });
+  return pages;
 }
 
 function loadImage(url) {
@@ -190,97 +201,71 @@ function canvasToPngBytes(canvas) {
   });
 }
 
-// Draws the logo header band that appears on every page — mirroring the
-// docx, where this comes from a real repeating header.
-function drawPageHeader(ctx, logoImg) {
-  const pageWidthPxScaled = PAGE_WIDTH_PX * RENDER_SCALE;
-  const logoHeightScaled = LOGO_HEIGHT_PX * RENDER_SCALE;
-  ctx.drawImage(logoImg, 0, 0, pageWidthPxScaled, logoHeightScaled);
+function newPageCanvas() {
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(PAGE_W * RENDER_SCALE);
+  canvas.height = Math.round(PAGE_H * RENDER_SCALE);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  return { canvas, ctx };
+}
+
+// The logo banner the docx header puts on every page. Drawn last: it floats
+// in front of the body, whose white background would otherwise cover it.
+function drawLogo(ctx, logoImg) {
+  ctx.drawImage(logoImg, 0, LOGO_TOP * RENDER_SCALE, ctx.canvas.width, LOGO.heightPx * RENDER_SCALE);
 }
 
 async function renderMainContentPages(data, logoImg) {
-  await waitForFonts();
-  const dom = buildPrintableDom(data);
-  const host = el("div", {
-    position: "fixed",
-    top: "0",
-    left: "-10000px",
-    zIndex: "-1",
-  }, [dom]);
+  await loadFonts();
+  const { column, paragraphs } = buildColumn(data);
+  const host = el("div", { position: "fixed", top: "0", left: "-10000px", zIndex: "-1" }, [column]);
   document.body.appendChild(host);
 
   let contentCanvas;
+  let pages;
   try {
-    contentCanvas = await html2canvas(dom, {
+    pages = paginate(measureLines(column, paragraphs));
+    contentCanvas = await html2canvas(column, {
       scale: RENDER_SCALE,
       useCORS: true,
       backgroundColor: "#ffffff",
-      width: PAGE_WIDTH_PX,
-      windowWidth: PAGE_WIDTH_PX,
+      windowWidth: Math.ceil(PAGE_W),
     });
   } finally {
     document.body.removeChild(host);
   }
 
-  const pageWidthPxScaled = PAGE_WIDTH_PX * RENDER_SCALE;
-  const pageHeightPxScaled = PAGE_HEIGHT_PX * RENDER_SCALE;
-  const headerBandScaled = HEADER_BAND_PX * RENDER_SCALE;
-  const footerBandScaled = FOOTER_BAND_PX * RENDER_SCALE;
-  const availableContentHeightScaled = pageHeightPxScaled - headerBandScaled - footerBandScaled;
-  const pageCount = Math.max(1, Math.ceil(contentCanvas.height / availableContentHeightScaled));
-
-  const pages = [];
-  for (let i = 0; i < pageCount; i++) {
-    const pageCanvas = document.createElement("canvas");
-    pageCanvas.width = pageWidthPxScaled;
-    pageCanvas.height = pageHeightPxScaled;
-    const ctx = pageCanvas.getContext("2d");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+  const result = [];
+  for (const { start, end } of pages) {
+    const { canvas, ctx } = newPageCanvas();
+    const height = (end - start) * RENDER_SCALE;
     ctx.drawImage(
       contentCanvas,
-      0,
-      i * availableContentHeightScaled,
-      pageWidthPxScaled,
-      availableContentHeightScaled,
-      0,
-      headerBandScaled,
-      pageWidthPxScaled,
-      availableContentHeightScaled,
+      0, start * RENDER_SCALE, contentCanvas.width, height,
+      BODY_LEFT * RENDER_SCALE, BODY_TOP * RENDER_SCALE, contentCanvas.width, height,
     );
-    drawPageHeader(ctx, logoImg);
-    pages.push(await canvasToPngBytes(pageCanvas));
+    drawLogo(ctx, logoImg);
+    result.push(await canvasToPngBytes(canvas));
   }
-  return pages;
+  return result;
 }
 
+// Mirrors the docx attachment page: image centred in the column at the top
+// of the body.
 function renderAttachmentPage(att, logoImg) {
-  const pageWidthPxScaled = PAGE_WIDTH_PX * RENDER_SCALE;
-  const pageHeightPxScaled = PAGE_HEIGHT_PX * RENDER_SCALE;
-  const headerBandScaled = HEADER_BAND_PX * RENDER_SCALE;
-  const footerBandScaled = FOOTER_BAND_PX * RENDER_SCALE;
-  const availableHeight = pageHeightPxScaled - headerBandScaled - footerBandScaled;
-  const availableWidth = pageWidthPxScaled - 48 * RENDER_SCALE * 2;
-
-  const pageCanvas = document.createElement("canvas");
-  pageCanvas.width = pageWidthPxScaled;
-  pageCanvas.height = pageHeightPxScaled;
-  const ctx = pageCanvas.getContext("2d");
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-
-  const scale = Math.min(1, availableWidth / att.width, availableHeight / att.height);
-  const width = att.width * scale;
-  const height = att.height * scale;
-  const x = (pageWidthPxScaled - width) / 2;
-  const y = headerBandScaled + (availableHeight - height) / 2;
+  const { canvas, ctx } = newPageCanvas();
+  const { width, height } = attachmentLayout(att);
+  const x = BODY_LEFT + (COLUMN_W - width) / 2;
+  const y = BODY_TOP;
 
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = async () => {
-      ctx.drawImage(img, x, y, width, height);
-      drawPageHeader(ctx, logoImg);
-      resolve(await canvasToPngBytes(pageCanvas));
+      ctx.drawImage(img, x * RENDER_SCALE, y * RENDER_SCALE, width * RENDER_SCALE, height * RENDER_SCALE);
+      drawLogo(ctx, logoImg);
+      resolve(await canvasToPngBytes(canvas));
     };
     img.onerror = () => reject(new Error(`Failed to load attachment image: ${att.label}`));
     img.src = URL.createObjectURL(new Blob([att.bytes], { type: "image/png" }));
@@ -296,10 +281,12 @@ export async function generateReferralFormPdf(data) {
     (data.attachments ?? []).map((att) => renderAttachmentPage(att, logoImg)),
   );
 
+  const pageWidthPt = PAGE.width / 20;
+  const pageHeightPt = PAGE.height / 20;
   for (const bytes of [...mainPageBytes, ...attachmentPageBytes]) {
-    const page = pdfDoc.addPage([PAGE_WIDTH_PT, PAGE_HEIGHT_PT]);
+    const page = pdfDoc.addPage([pageWidthPt, pageHeightPt]);
     const png = await pdfDoc.embedPng(bytes);
-    page.drawImage(png, { x: 0, y: 0, width: PAGE_WIDTH_PT, height: PAGE_HEIGHT_PT });
+    page.drawImage(png, { x: 0, y: 0, width: pageWidthPt, height: pageHeightPt });
   }
 
   return pdfDoc.save();
