@@ -31,7 +31,11 @@ import {
 // DOM measurements are CSS px (96 dpi); PDF coordinates are points.
 
 const twipsToPx = (twips) => (twips * 96) / 1440;
-const halfPointsToPx = (halfPoints) => (halfPoints / 2) * (96 / 72);
+// The PDF's text is drawn smaller than the .docx specifies, to match how
+// Word shows the letter on the clinic's computers. Layout, margins and
+// spacing are unchanged.
+const PDF_TEXT_SCALE = 0.8;
+const fontSizePx = (halfPoints) => (halfPoints / 2) * (96 / 72) * PDF_TEXT_SCALE;
 const pointsToPx = (points) => (points * 96) / 72;
 const pxToPt = (px) => px * 0.75;
 
@@ -46,7 +50,7 @@ const BODY_BOTTOM = PAGE_H - twipsToPx(PAGE.marginBottom);
 // An empty paragraph (and the header's one empty paragraph) takes its
 // height from Word's fallback 10pt default font.
 const EMPTY_LINE = pointsToPx(11.5);
-const MARKER_SIZE = pointsToPx(10);
+const MARKER_SIZE = pointsToPx(10) * PDF_TEXT_SCALE;
 const MARKER_FONT = "'Times New Roman', 'Liberation Serif', serif";
 
 // Word starts the body below the header when the header runs past the top
@@ -165,7 +169,7 @@ function el(tag, style, children, attrs) {
 
 function renderParagraph(p, marker) {
   const hasText = p.runs.some((r) => r.text);
-  const size = halfPointsToPx(Math.max(...p.runs.map((r) => r.size ?? DEFAULT_SIZE)));
+  const size = fontSizePx(Math.max(...p.runs.map((r) => r.size ?? DEFAULT_SIZE)));
   const weight = p.runs.some((r) => r.bold && r.text) ? 700 : 400;
   const lineHeight = hasText ? size * lineHeightFactor(weight) : EMPTY_LINE;
   const hanging = p.list?.type === "number" ? NUMBERED_LIST.hanging : (p.indent?.hanging ?? 0);
@@ -188,11 +192,11 @@ function renderParagraph(p, marker) {
       const runWeight = r.bold ? 700 : 400;
       children.push(
         el("span", {
-          fontSize: `${halfPointsToPx(r.size ?? DEFAULT_SIZE)}px`,
+          fontSize: `${fontSizePx(r.size ?? DEFAULT_SIZE)}px`,
           fontWeight: String(runWeight),
         }, [r.text ?? ""], {
           role: "text",
-          size: String(halfPointsToPx(r.size ?? DEFAULT_SIZE)),
+          size: String(fontSizePx(r.size ?? DEFAULT_SIZE)),
           weight: String(runWeight),
         }),
       );
