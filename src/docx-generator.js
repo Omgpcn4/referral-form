@@ -83,7 +83,7 @@ function formatDate(isoDate) {
 }
 
 function run(text, opts = {}) {
-  return new TextRun({ text: text ?? "", font: RUN_FONT, size: 22, ...opts });
+  return new TextRun({ text: text ?? "", font: RUN_FONT, size: 26, ...opts });
 }
 
 function labeledLine(parts, opts = {}) {
@@ -121,14 +121,18 @@ function numberedSection(number, label, blocks) {
   ];
   if (!blocks || blocks.length === 0) {
     paragraphs.push(
-      new Paragraph({ indent: { left: 360 }, children: [run("", { size: 18 })] }),
+      new Paragraph({ indent: { left: 360 }, children: [run("", { size: 22 })] }),
     );
   } else {
     blocks.forEach((block) => {
-      const textRun = run(block.text, { size: 18, bold: block.bold || undefined });
+      const textRun = run(block.text, { size: 22, bold: block.bold || undefined });
       if (block.type === "bullet") {
         paragraphs.push(
-          new Paragraph({ indent: { left: 360 }, bullet: { level: 0 }, children: [textRun] }),
+          new Paragraph({
+            indent: { left: 1080, hanging: 360 },
+            bullet: { level: 0 },
+            children: [textRun],
+          }),
         );
       } else if (block.type === "number") {
         paragraphs.push(
@@ -232,14 +236,14 @@ export async function generateReferralFormDocx(data) {
     new Paragraph({
       alignment: AlignmentType.RIGHT,
       spacing: { after: 0 },
-      children: [run("วันที่ Date: ", { size: 18 }), run(formatDate(data.date), { size: 18 })],
+      children: [run("วันที่ Date: ", { size: 22 }), run(formatDate(data.date), { size: 22 })],
     }),
   );
   children.push(
     new Paragraph({
       alignment: AlignmentType.RIGHT,
       spacing: { after: 160 },
-      children: [run("HN: ", { size: 18 }), run(s(data.hn), { size: 18 })],
+      children: [run("HN: ", { size: 22 }), run(s(data.hn), { size: 22 })],
     }),
   );
 
@@ -288,15 +292,15 @@ export async function generateReferralFormDocx(data) {
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { after: 40 },
-      children: [run(`(${s(data.vetName)})`, { size: 18 })],
+      children: [run(`(${s(data.vetName)})`, { size: 22 })],
     }),
   );
   children.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
       children: [
-        run("ใบอนุญาตเลขที่ Veterinary License No. ", { size: 18 }),
-        run(s(data.licenseNo), { size: 18 }),
+        run("ใบอนุญาตเลขที่ Veterinary License No. ", { size: 22 }),
+        run(s(data.licenseNo), { size: 22 }),
       ],
     }),
   );
