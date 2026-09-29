@@ -40,22 +40,51 @@ const FONT_FAMILY = "TH Sarabun New";
 // Single line spacing = (winAscent + winDescent) / unitsPerEm, as in Word.
 const LINE_HEIGHT_FACTOR = { regular: (2619 + 1359) / 2048, bold: (2644 + 1472) / 2048 };
 
-let fontsPromise;
-function loadFonts() {
-  if (!fontsPromise) {
+const FONT_FILES = [
+  { file: "THSarabunNew.woff", weight: "400" },
+  { file: "THSarabunNew-Bold.woff", weight: "700" },
+];
+
+let fontBytesPromise;
+function fetchFontBytes() {
+  if (!fontBytesPromise) {
     const base = import.meta.env.BASE_URL;
-    const faces = [
-      new FontFace(FONT_FAMILY, `url(${base}fonts/THSarabunNew.woff)`, { weight: "400" }),
-      new FontFace(FONT_FAMILY, `url(${base}fonts/THSarabunNew-Bold.woff)`, { weight: "700" }),
-    ];
-    fontsPromise = Promise.all(faces.map((face) => face.load()))
-      .then((loaded) => loaded.forEach((face) => document.fonts.add(face)))
-      .catch((err) => {
-        fontsPromise = null;
-        console.warn("TH Sarabun font failed to load; PDF will use a fallback font.", err);
-      });
+    fontBytesPromise = Promise.all(
+      FONT_FILES.map(async ({ file, weight }) => {
+        const res = await fetch(`${base}fonts/${file}`);
+        if (!res.ok) throw new Error(`Failed to load font ${file}`);
+        return { weight, bytes: await res.arrayBuffer() };
+      }),
+    ).catch((err) => {
+      fontBytesPromise = null;
+      throw err;
+    });
   }
-  return fontsPromise;
+  return fontBytesPromise;
+}
+
+// Registers the font in a document. html2canvas renders from a cloned copy
+// of the page, which doesn't inherit fonts added through the FontFace API,
+// so this runs on both the real document (used to measure page breaks) and
+// the clone; otherwise text is laid out in a fallback font but drawn in TH
+// Sarabun, and the letters overlap.
+const installedFonts = new WeakMap();
+function installFonts(doc) {
+  if (!installedFonts.has(doc)) {
+    const promise = fetchFontBytes().then((fonts) => {
+      const FontFaceCtor = doc.defaultView.FontFace;
+      return Promise.all(
+        fonts.map(async ({ weight, bytes }) => {
+          const face = new FontFaceCtor(FONT_FAMILY, bytes.slice(0), { weight });
+          await face.load();
+          doc.fonts.add(face);
+        }),
+      );
+    });
+    promise.catch(() => installedFonts.delete(doc));
+    installedFonts.set(doc, promise);
+  }
+  return installedFonts.get(doc);
 }
 
 function el(tag, style, children) {
@@ -218,7 +247,15 @@ function drawLogo(ctx, logoImg) {
 }
 
 async function renderMainContentPages(data, logoImg) {
-  await loadFonts();
+  // If the font can't load (e.g. offline), neither copy gets it, so layout
+  // and drawing still agree on the fallback font.
+  const fontReady = await installFonts(document).then(
+    () => true,
+    (err) => {
+      console.warn("TH Sarabun font failed to load; PDF will use a fallback font.", err);
+      return false;
+    },
+  );
   const { column, paragraphs } = buildColumn(data);
   const host = el("div", { position: "fixed", top: "0", left: "-10000px", zIndex: "-1" }, [column]);
   document.body.appendChild(host);
@@ -232,6 +269,7 @@ async function renderMainContentPages(data, logoImg) {
       useCORS: true,
       backgroundColor: "#ffffff",
       windowWidth: Math.ceil(PAGE_W),
+      onclone: (clonedDoc) => (fontReady ? installFonts(clonedDoc) : undefined),
     });
   } finally {
     document.body.removeChild(host);
