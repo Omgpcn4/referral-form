@@ -2,7 +2,9 @@
 // and .pdf generators so the two outputs can't drift apart. Units follow
 // Word: lengths in twips (1/20 pt), font sizes in half-points.
 
-export const FONT_NAME = "TH Sarabun PSK";
+// Embedded in the .docx (see docx-fonts.js) and used by the PDF, so both
+// render in the same font whatever is installed.
+export const FONT_NAME = "TH Sarabun New";
 export const DEFAULT_SIZE = 26;
 
 const PAGE_WIDTH = 11906;

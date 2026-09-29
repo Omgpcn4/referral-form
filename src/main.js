@@ -327,7 +327,8 @@ function init() {
       data.attachments = attachments;
       saveVet(data.vetName, data.licenseNo, selectedVetName);
       const doc = await generateReferralFormDocx(data);
-      const blob = await Packer.toBlob(doc);
+      const { embedFonts } = await import("./docx-fonts.js");
+      const blob = await embedFonts(await Packer.toBlob(doc));
       const filename = buildFilename(data);
       downloadBlob(blob, filename);
       setStatus(`Downloaded ${filename}`, "success");
